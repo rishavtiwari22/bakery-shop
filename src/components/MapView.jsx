@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, Circle } from 'react-leaflet'
 import L from 'leaflet'
 import { BAKERY_LAT, BAKERY_LNG } from '../services/geolocation'
 import RoutingControl from './RoutingControl'
@@ -83,10 +83,27 @@ export default function MapView({ userLocation, onLocationSelect, interactive = 
         {/* User delivery marker */}
         {userLocation && (
           <>
-            <Marker position={[userLocation.lat, userLocation.lng]} icon={userIcon}>
+            <Circle
+              center={[userLocation.lat, userLocation.lng]}
+              radius={userLocation.accuracy || 20}
+              pathOptions={{ fillColor: 'blue', fillOpacity: 0.1, color: 'blue', weight: 1, dashArray: '5, 5' }}
+            />
+            <Marker 
+              position={[userLocation.lat, userLocation.lng]} 
+              icon={userIcon}
+              draggable={true}
+              eventHandlers={{
+                dragend: (e) => {
+                  const marker = e.target
+                  const position = marker.getLatLng()
+                  onLocationSelect?.({ lat: position.lat, lng: position.lng })
+                },
+              }}
+            >
               <Popup>
                 <div className="text-sm font-semibold">📍 Your Delivery Location</div>
-                <div className="text-xs text-gray-500">{userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}</div>
+                <div className="text-[10px] text-gray-400 mb-1">Drag marker to fine-tune</div>
+                <div className="text-[10px] text-gray-500">{userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}</div>
               </Popup>
             </Marker>
             <RoutingControl 

@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Loader2, Package, Clock, CheckCircle2, ChefHat, MessageSquare, Timer } from 'lucide-react'
+import { Loader2, Package, Clock, CheckCircle2, ChefHat, MessageSquare, Timer, PhoneCall, Truck } from 'lucide-react'
 import { subscribeToUserOrders } from '../services/firebase'
 import { getEstimatedDeliveryTime } from '../services/geolocation'
 import { useAuth } from '../context/AuthContext'
+import CountdownTimer from '../components/CountdownTimer'
 import toast from 'react-hot-toast'
 
 const STATUS_CONFIG = {
   pending: { label: 'Pending', icon: Clock, color: 'bg-yellow-100 text-yellow-700', step: 1 },
   preparing: { label: 'Preparing', icon: ChefHat, color: 'bg-blue-100 text-blue-700', step: 2 },
-  delivered: { label: 'Delivered', icon: CheckCircle2, color: 'bg-green-100 text-green-700', step: 3 },
+  on_the_way: { label: 'On The Way', icon: Truck, color: 'bg-purple-100 text-purple-700', step: 3 },
+  delivered: { label: 'Delivered', icon: CheckCircle2, color: 'bg-green-100 text-green-700', step: 4 },
 }
 
 export default function OrderHistory() {
@@ -70,9 +72,24 @@ export default function OrderHistory() {
 
                   {/* Delivery Estimation */}
                   {order.status !== 'delivered' && (
-                    <div className="flex items-center gap-2 mb-4 text-xs font-medium text-orange-600 bg-orange-50 w-fit px-3 py-1.5 rounded-lg border border-orange-100">
-                      <Timer size={14} className="animate-spin-slow" />
-                      <span>Estimated Arrival: <strong className="text-sm">{getEstimatedDeliveryTime(order.distance)} mins</strong></span>
+                    <div className="flex flex-col gap-2 mb-4 bg-orange-50 p-4 rounded-2xl border border-orange-100 shadow-inner">
+                      <div className="flex items-center justify-between text-xs font-bold text-orange-600 uppercase tracking-widest">
+                        <div className="flex items-center gap-2">
+                          <Timer size={14} className="animate-spin-slow" />
+                          <span>Estimated Arrival</span>
+                        </div>
+                        <span className="opacity-60">Real-time</span>
+                      </div>
+                      
+                      {order.estimatedDeliveryTime ? (
+                        <div className="mt-1">
+                          <CountdownTimer targetTime={order.estimatedDeliveryTime} />
+                        </div>
+                      ) : (
+                        <p className="text-gray-400 text-[10px] font-medium italic">
+                          Waiting for kitchen update...
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -81,6 +98,7 @@ export default function OrderHistory() {
                     <div className={`h-1.5 flex-1 rounded-full ${s.step >= 1 ? 'bg-orange-500' : 'bg-gray-100'}`} />
                     <div className={`h-1.5 flex-1 rounded-full ${s.step >= 2 ? 'bg-orange-500' : 'bg-gray-100'}`} />
                     <div className={`h-1.5 flex-1 rounded-full ${s.step >= 3 ? 'bg-orange-500' : 'bg-gray-100'}`} />
+                    <div className={`h-1.5 flex-1 rounded-full ${s.step >= 4 ? 'bg-orange-500' : 'bg-gray-100'}`} />
                   </div>
 
                   {/* Items */}
@@ -114,6 +132,17 @@ export default function OrderHistory() {
                       <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Total Paid</p>
                       <p className="text-xl font-black text-orange-600">₹{order.total?.toFixed(0)}</p>
                     </div>
+                  </div>
+
+                  {/* Call Bakery Button */}
+                  <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between">
+                    <p className="text-[10px] text-gray-400 font-medium">Need help with this order?</p>
+                    <a 
+                      href="tel:9336648747"
+                      className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md shadow-green-100"
+                    >
+                      <PhoneCall size={14} /> Call Bakery
+                    </a>
                   </div>
                 </div>
               </div>

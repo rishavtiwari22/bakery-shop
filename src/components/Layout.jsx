@@ -19,7 +19,7 @@ export default function Layout() {
       <main>
         <Outlet />
       </main>
-      {isKnownRoute && <Footer />}
+      {isKnownRoute && location.pathname !== '/admin' && <Footer />}
     </div>
   )
 }

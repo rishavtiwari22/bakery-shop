@@ -187,3 +187,30 @@ export const MOCK_ORDERS = [
     timestamp: { toDate: () => new Date('2024-03-27T14:20:00') },
   },
 ]
+
+export const MOCK_USERS = [
+  {
+    uid: 'demo-user',
+    name: 'Raj Patel',
+    email: 'raj@example.com',
+    phone: '9876543210',
+    createdAt: new Date('2024-01-10'),
+    address: 'Adajan, Surat, Gujarat 395009'
+  },
+  {
+    uid: 'user-002',
+    name: 'Priya Shah',
+    email: 'priya@example.com',
+    phone: '9876543211',
+    createdAt: new Date('2024-02-15'),
+    address: 'Vesu, Surat, Gujarat 395007'
+  },
+  {
+    uid: 'user-003',
+    name: 'Amit Desai',
+    email: 'amit@example.com',
+    phone: '9123456789',
+    createdAt: new Date('2024-03-01'),
+    address: 'Katargam, Surat, Gujarat 395004'
+  }
+]

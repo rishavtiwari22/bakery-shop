@@ -3,7 +3,7 @@ import { MapPin, Navigation, Loader2, CheckCircle, AlertTriangle, ShoppingBag } 
 import MapView from '../components/MapView'
 import { useCartStore } from '../store/cartStore'
 import { useAuth } from '../context/AuthContext'
-import { getCurrentPosition, distanceFromBakery, reverseGeocode, MAX_DELIVERY_KM } from '../services/geolocation'
+import { getCurrentPosition, distanceFromBakery, reverseGeocode, searchAddress, MAX_DELIVERY_KM } from '../services/geolocation'
 import { createOrder, getUserProfile } from '../services/firebase'
 import { initiatePayment } from '../services/razorpay'
 import { useForm } from 'react-hook-form'
@@ -46,6 +46,7 @@ export default function Location() {
   const handleLocate = async () => {
     setLocating(true)
     try {
+      toast('Finding your precise location...', { icon: '⏲️' })
       const pos = await getCurrentPosition()
       const dist = distanceFromBakery(pos.lat, pos.lng)
       setUserLocation(pos)
@@ -58,7 +59,37 @@ export default function Location() {
         toast.success(`Location set! ${dist.toFixed(1)}km from bakery ✓`)
       }
     } catch (err) {
-      toast.error('Could not get location. Enter address manually.')
+      // If auto-locate fails, center on bakery as a helpful starting point instead of showing error
+      const { BAKERY_LAT, BAKERY_LNG } = await import('../services/geolocation') 
+      const bakeryPos = { lat: BAKERY_LAT, lng: BAKERY_LNG }
+      setUserLocation(bakeryPos)
+      setDistance(0)
+      setAddress('Centered on Bakery (Please drag the blue pin to your door)')
+      toast('GPS timed out or blocked. We\'ve centered the map on the bakery—please drag the pin to your delivery spot!', {
+        icon: '📍',
+        duration: 8000,
+      })
+    } finally {
+      setLocating(false)
+    }
+  }
+
+  const handleSearch = async () => {
+    if (!address) { toast.error('Please type an address to search'); return }
+    setLocating(true)
+    try {
+      const result = await searchAddress(address)
+      if (result) {
+        const dist = distanceFromBakery(result.lat, result.lng)
+        setUserLocation(result)
+        setDistance(dist)
+        setAddress(result.displayName)
+        toast.success('Address found and pinned! 📍')
+      } else {
+        toast.error('Could not find this address. Please try something more specific.')
+      }
+    } catch (err) {
+      toast.error('Search failed. Please try again or pin on map.')
     } finally {
       setLocating(false)
     }
@@ -158,6 +189,27 @@ export default function Location() {
                   className="w-full border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none rounded-xl px-4 py-2.5 text-sm"
                   placeholder="Your name"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Delivery Address (Search) *</label>
+                <div className="relative">
+                  <input
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none rounded-xl px-4 py-2.5 text-sm pr-24"
+                    placeholder="Type colony, area, or landmark..."
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSearch}
+                    disabled={locating || !address}
+                    className="absolute right-1.5 top-1.5 bottom-1.5 bg-orange-100 hover:bg-orange-200 text-orange-600 px-3 rounded-lg text-[10px] font-bold transition-colors disabled:opacity-50"
+                  >
+                    SEARCH
+                  </button>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">Tip: If GPS is inaccurate, type your area name and click SEARCH to "calculate" your location.</p>
               </div>
               
               <div>

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { MOCK_ITEMS, MOCK_ORDERS, MOCK_REVIEWS } from '../data/mockData'
+import { MOCK_ITEMS, MOCK_ORDERS, MOCK_REVIEWS, MOCK_USERS } from '../data/mockData'
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -23,6 +23,7 @@ import {
   orderBy,
   serverTimestamp,
   onSnapshot,
+  Timestamp,
 } from 'firebase/firestore'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
@@ -85,15 +86,28 @@ export const onAuthChange = (callback) => onAuthStateChanged(auth, callback)
 // ─── Items ───────────────────────────────────────────────────────────────────
 
 export const fetchItems = async (filters = {}) => {
-  const itemsRef = collection(db, 'items')
-  const q = query(itemsRef, orderBy('createdAt', 'desc'))
-  const snap = await getDocs(q)
-  let items = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  try {
+    if (USE_MOCK) {
+      let items = [...MOCK_ITEMS]
+      if (filters.tag) {
+        items = items.filter(i => i.tags?.includes(filters.tag))
+      }
+      return items
+    }
 
-  if (filters.tag) {
-    items = items.filter(i => i.tags?.includes(filters.tag))
+    const itemsRef = collection(db, 'items')
+    const q = query(itemsRef, orderBy('createdAt', 'desc'))
+    const snap = await getDocs(q)
+    let items = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+
+    if (filters.tag) {
+      items = items.filter(i => i.tags?.includes(filters.tag))
+    }
+    return items
+  } catch (err) {
+    console.error('Firebase: fetchItems Error:', err)
+    throw err
   }
-  return items
 }
 
 export const fetchItem = async (id) => {
@@ -159,12 +173,17 @@ export const subscribeToUserOrders = (userId, callback) => {
 }
 
 export const fetchAllOrders = async () => {
-  if (USE_MOCK) {
-    return MOCK_ORDERS
+  try {
+    if (USE_MOCK) {
+      return MOCK_ORDERS
+    }
+    const q = query(collection(db, 'orders'), orderBy('timestamp', 'desc'))
+    const snap = await getDocs(q)
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  } catch (err) {
+    console.error('Firebase: fetchAllOrders Error:', err)
+    throw err
   }
-  const q = query(collection(db, 'orders'), orderBy('timestamp', 'desc'))
-  const snap = await getDocs(q)
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
 export const subscribeToOrders = (callback) => {
@@ -199,7 +218,34 @@ export const simulateNewOrder = (name) => {
 
 export const updateOrderStatus = async (id, status) => {
   if (USE_MOCK) return
-  return updateDoc(doc(doc(db, 'orders', id), { status }))
+  return updateDoc(doc(db, 'orders', id), { status })
+}
+
+export const deleteOrder = (id) => {
+  if (USE_MOCK) return
+  return deleteDoc(doc(db, 'orders', id))
+}
+
+export const updateOrderTimer = async (id, minutesToAdd) => {
+  if (USE_MOCK) return
+  const orderRef = doc(db, 'orders', id)
+  const orderSnap = await getDoc(orderRef)
+  
+  if (!orderSnap.exists()) return
+
+  const currentEstimated = orderSnap.data().estimatedDeliveryTime
+  let newTime
+
+  if (currentEstimated) {
+    // Extend existing time
+    const currentMs = currentEstimated.toMillis ? currentEstimated.toMillis() : currentEstimated
+    newTime = Timestamp.fromMillis(currentMs + minutesToAdd * 60 * 1000)
+  } else {
+    // Start from now
+    newTime = Timestamp.fromMillis(Date.now() + minutesToAdd * 60 * 1000)
+  }
+
+  return updateDoc(orderRef, { estimatedDeliveryTime: newTime })
 }
 
 // ─── Reviews ─────────────────────────────────────────────────────────────────
@@ -296,4 +342,44 @@ export const getUserProfile = async (uid) => {
 export const updateUserProfile = async (uid, data) => {
   if (USE_MOCK) return Promise.resolve()
   return setDoc(doc(db, 'users', uid), data, { merge: true })
+}
+
+export const fetchAllUsers = async () => {
+  try {
+    if (USE_MOCK) return MOCK_USERS
+    const snap = await getDocs(collection(db, 'users'))
+    return snap.docs.map(d => ({ uid: d.id, ...d.data() }))
+  } catch (err) {
+    console.error('Firebase: fetchAllUsers Error:', err)
+    throw err
+  }
+}
+
+/**
+ * Seed real Firebase with mock data (Run once from Admin Panel)
+ */
+export const seedDatabase = async () => {
+  try {
+    console.log('Starting seed...')
+    // Items
+    for (const item of MOCK_ITEMS) {
+      const { id, ...data } = item
+      await setDoc(doc(db, 'items', id), { ...data, createdAt: serverTimestamp() })
+    }
+    // Users
+    for (const user of MOCK_USERS) {
+      const { uid, ...data } = user
+      await setDoc(doc(db, 'users', uid), { ...data, createdAt: serverTimestamp() })
+    }
+    // Orders
+    for (const order of MOCK_ORDERS) {
+      const { id, ...data } = order
+      await setDoc(doc(db, 'orders', id), { ...data, timestamp: serverTimestamp() })
+    }
+    console.log('Seed successful!')
+    return true
+  } catch (err) {
+    console.error('Seed Error:', err)
+    throw err
+  }
 }

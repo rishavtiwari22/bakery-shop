@@ -10,19 +10,8 @@ const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID
  * @param {object} options - { amount (paise), orderId, name, email, contact, onSuccess, onFailure }
  */
 export function initiatePayment({ amount, orderId, name, email, contact, onSuccess, onFailure }) {
-  const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true'
-
-  if (USE_MOCK) {
-    console.log('[MOCK] Bypassing Razorpay Payment...')
-    setTimeout(() => {
-      onSuccess?.({
-        razorpay_payment_id: 'pay_mock_' + Math.random().toString(36).slice(2),
-        razorpay_order_id: orderId,
-        razorpay_signature: 'mock_sig',
-      })
-    }, 1000)
-    return
-  }
+  // Payment bypass removed to ensure no one can skip payment
+  // if (USE_MOCK) { ... }
 
   if (!window.Razorpay) {
     onFailure?.(new Error('Razorpay SDK not loaded. Check internet connection.'))

@@ -31,11 +31,35 @@ export function getCurrentPosition() {
       return
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
       (err) => reject(err),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
     )
   })
+}
+
+/**
+ * Forward Geocoding: Calculate lat/lng from an address string.
+ */
+export async function searchAddress(query) {
+  if (!query) return null
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`
+    )
+    const data = await res.json()
+    if (data && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon),
+        displayName: data[0].display_name
+      }
+    }
+    return null
+  } catch (err) {
+    console.error('Search error:', err)
+    return null
+  }
 }
 
 /**
