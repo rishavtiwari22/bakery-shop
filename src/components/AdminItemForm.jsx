@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 export default function AdminItemForm({ item = null, onSuccess }) {
   const isEdit = !!item
   const { register, handleSubmit, formState: { errors }, reset } = useForm({
-    defaultValues: item || { name: '', price: '', desc: '', stockQty: '', tags: [] },
+    defaultValues: item || { name: '', price: '', desc: '', stockQty: '', tags: [], offer: 0 },
   })
   const [loading, setLoading] = useState(false)
   const [photoFile, setPhotoFile] = useState(null)
@@ -31,6 +31,7 @@ export default function AdminItemForm({ item = null, onSuccess }) {
       const payload = {
         name: data.name,
         price: Number(data.price),
+        offer: Number(data.offer || 0),
         desc: data.desc,
         stockQty: Number(data.stockQty),
         isOutOfStock: Number(data.stockQty) === 0,
@@ -60,7 +61,7 @@ export default function AdminItemForm({ item = null, onSuccess }) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {/* Photo */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">Photo</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5 uppercase tracking-wider text-[10px]">Photo</label>
         <div className="flex items-center gap-4">
           {photoPreview ? (
             <div className="relative">
@@ -82,7 +83,7 @@ export default function AdminItemForm({ item = null, onSuccess }) {
 
       {/* Name */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">Name *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5 uppercase tracking-wider text-[10px]">Name *</label>
         <input
           {...register('name', { required: 'Name is required' })}
           className="w-full border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none rounded-xl px-4 py-2.5 text-sm"
@@ -91,10 +92,10 @@ export default function AdminItemForm({ item = null, onSuccess }) {
         {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
       </div>
 
-      {/* Price + Stock */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Price + Stock + Offer */}
+      <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Price (₹) *</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5 uppercase tracking-wider text-[10px]">Price (₹) *</label>
           <input
             type="number"
             {...register('price', { required: true, min: 1 })}
@@ -103,7 +104,16 @@ export default function AdminItemForm({ item = null, onSuccess }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Stock Qty *</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5 uppercase tracking-wider text-[10px]">Offer (%)</label>
+          <input
+            type="number"
+            {...register('offer', { min: 0, max: 100 })}
+            className="w-full border border-orange-200 bg-orange-50/30 font-bold text-orange-600 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none rounded-xl px-4 py-2.5 text-sm"
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5 uppercase tracking-wider text-[10px]">Stock *</label>
           <input
             type="number"
             {...register('stockQty', { required: true, min: 0 })}

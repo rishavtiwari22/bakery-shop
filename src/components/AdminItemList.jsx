@@ -71,8 +71,18 @@ export default function AdminItemList({ items, onRefresh }) {
                 {item.isOutOfStock && (
                   <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-gray-100 text-gray-500">OUT OF STOCK</span>
                 )}
+                {item.offer > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-orange-500 text-white animate-pulse uppercase tracking-wider">
+                    {item.offer}% OFF
+                  </span>
+                )}
               </div>
-              <p className="text-sm text-orange-600 font-bold">₹{item.price}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-orange-600 font-bold">₹{(item.price * (1 - (item.offer || 0) / 100)).toFixed(0)}</p>
+                {item.offer > 0 && (
+                  <span className="text-[10px] text-gray-400 line-through">₹{item.price}</span>
+                )}
+              </div>
               <p className="text-xs text-gray-500">Stock: {item.stockQty}</p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">

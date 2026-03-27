@@ -136,22 +136,34 @@ export default function ItemDetail() {
             <h1 className="text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>{item.name}</h1>
             
             {/* Rating Summary */}
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex items-center text-amber-500">
-                <Star size={16} fill="currentColor" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center text-amber-500">
+                  <Star size={16} fill="currentColor" />
+                </div>
+                <span className="text-sm font-bold text-gray-700">
+                  {item.avgRating ? item.avgRating.toFixed(1) : 'New'}
+                </span>
+                <span className="text-gray-300">|</span>
+                <span className="text-sm text-gray-500 cursor-pointer" onClick={() => document.getElementById('reviews-section')?.scrollIntoView({ behavior: 'smooth' })}>
+                  {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}
+                </span>
               </div>
-              <span className="text-sm font-bold text-gray-700">
-                {item.avgRating ? item.avgRating.toFixed(1) : 'New'}
-              </span>
-              <span className="text-gray-300">|</span>
-              <span className="text-sm text-gray-500 cursor-pointer" onClick={() => document.getElementById('reviews-section')?.scrollIntoView({ behavior: 'smooth' })}>
-                {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}
-              </span>
+              {item.offer > 0 && (
+                <span className="bg-orange-500 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-lg shadow-orange-100 border border-orange-400 uppercase tracking-widest animate-pulse">
+                  SPECIAL {item.offer}% OFF
+                </span>
+              )}
             </div>
 
             <p className="text-gray-500 text-sm mb-6 leading-relaxed">{item.desc}</p>
 
-            <div className="text-3xl font-bold text-orange-500 mb-1">₹{item.price}</div>
+            <div className="flex items-baseline gap-3 mb-1">
+              <div className="text-3xl font-bold text-orange-500">₹{(item.price * (1 - (item.offer || 0) / 100)).toFixed(0)}</div>
+              {item.offer > 0 && (
+                <div className="text-lg text-gray-400 line-through font-medium italic">₹{item.price}</div>
+              )}
+            </div>
             {!isOutOfStock && <p className="text-sm text-gray-400 mb-6">{item.stockQty} in stock</p>}
 
             {/* Qty selector */}
@@ -183,7 +195,7 @@ export default function ItemDetail() {
               }`}
             >
               <ShoppingCart size={20} />
-              {isOutOfStock ? 'Out of Stock' : `Add ${qty} to Cart — ₹${(item.price * qty).toFixed(0)}`}
+              {isOutOfStock ? 'Out of Stock' : `Add ${qty} to Cart — ₹${(item.price * (1 - (item.offer || 0) / 100) * qty).toFixed(0)}`}
             </button>
           </div>
         </div>

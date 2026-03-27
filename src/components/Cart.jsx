@@ -60,7 +60,12 @@ export default function Cart() {
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 text-sm truncate">{item.name}</p>
-                    <p className="text-orange-600 font-bold text-sm">₹{item.price}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-orange-600 font-bold text-sm">₹{item.price}</p>
+                      {item.offer > 0 && (
+                        <p className="text-[10px] text-gray-400 line-through">₹{item.originalPrice}</p>
+                      )}
+                    </div>
                     {/* Qty controls */}
                     <div className="flex items-center gap-2 mt-2">
                       <button

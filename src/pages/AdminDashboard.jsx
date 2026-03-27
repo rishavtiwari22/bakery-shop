@@ -210,19 +210,19 @@ export default function AdminDashboard() {
             onClick={() => setTab('orders')}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === 'orders' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-transparent text-gray-500 hover:text-orange-600'}`}
           >
-            📦 Orders
+            Orders ({orders.length})
           </button>
           <button
             onClick={() => setTab('items')}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === 'items' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-transparent text-gray-500 hover:text-orange-600'}`}
           >
-            🍰 Items
+            Items ({items.length})
           </button>
           <button
             onClick={() => setTab('users')}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === 'users' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-transparent text-gray-500 hover:text-orange-600'}`}
           >
-            👥 Users
+            Users ({users.length})
           </button>
         </div>
 
@@ -303,7 +303,13 @@ export default function AdminDashboard() {
                         <p className="text-xs text-gray-400 mb-3">{order.customerPhone}</p>
 
                         {/* Items list */}
-                        <div className="text-sm text-gray-600 mb-2 flex flex-wrap gap-1">
+                        <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+                          <span>Items</span>
+                          <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-md font-black">
+                            {order.items?.reduce((sum, i) => sum + i.qty, 0) || 0} TOTAL
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-600 mb-3 flex flex-wrap gap-1">
                           {order.items?.map((i, idx) => (
                             <span key={idx} className="bg-orange-50 text-orange-600 border border-orange-100 rounded-lg px-2 py-0.5 text-[10px] font-bold">
                               {i.name} ×{i.qty}

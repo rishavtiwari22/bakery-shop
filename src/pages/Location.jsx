@@ -129,6 +129,14 @@ export default function Location() {
             notes: useCartStore.getState().orderNotes,
             paymentId: response.razorpay_payment_id,
           })
+
+          // Update/Sync profile
+          await updateUserProfile(user.uid, { 
+            name: formData.name || user.displayName, 
+            phone: formData.phone, 
+            email: user.email 
+          })
+
           clearCart()
           toast.success('Order placed successfully! 🎉')
           navigate('/orders')
@@ -150,119 +158,130 @@ export default function Location() {
         Delivery & Checkout
       </h1>
 
-      <div className="grid lg:grid-cols-2 gap-8">
-        {/* Map */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-medium text-gray-700">📍 Pin your delivery location</p>
+      <div className="grid lg:grid-cols-2 gap-8 items-stretch">
+        {/* Map Card */}
+        <div className="bg-white rounded-2xl border border-orange-100 shadow-sm flex flex-col h-full min-h-[500px] overflow-hidden">
+          <div className="p-4 border-b border-orange-50 bg-orange-50/10 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <MapPin size={16} className="text-orange-500" />
+              Pin Delivery Location
+            </h2>
+            {distance !== null && (
+              <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                distance <= MAX_DELIVERY_KM ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              }`}>
+                {distance.toFixed(1)} km
+              </div>
+            )}
           </div>
-
-          <div className="h-72 sm:h-96 rounded-xl overflow-hidden">
+          
+          <div className="flex-1 relative">
             <MapView userLocation={userLocation} onLocationSelect={handleMapSelect} interactive />
           </div>
 
-          {/* Distance badge */}
-          {distance !== null && (
-            <div className={`mt-3 flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${
-              distance <= MAX_DELIVERY_KM ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
-            }`}>
-              {distance <= MAX_DELIVERY_KM ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
-              {distance <= MAX_DELIVERY_KM
-                ? `✓ ${distance.toFixed(2)}km from bakery — delivery available!`
-                : `✗ ${distance.toFixed(2)}km — too far (max 10km)`}
-            </div>
-          )}
-          {address && <p className="text-xs text-gray-500 mt-2 truncate"><MapPin size={12} className="inline" /> {address}</p>}
+          <div className="p-4 bg-orange-50/5 border-t border-orange-50">
+            {address ? (
+              <p className="text-[11px] text-gray-500 font-medium leading-tight line-clamp-2">
+                {address}
+              </p>
+            ) : (
+              <p className="text-[11px] text-gray-400 italic">Drag blue pin precisely to your door...</p>
+            )}
+            
+            {distance !== null && distance > MAX_DELIVERY_KM && (
+              <div className="mt-2 flex items-center gap-2 text-[9px] px-2 py-1.5 rounded-md bg-red-50 text-red-600 font-bold uppercase tracking-widest border border-red-100/50">
+                <AlertTriangle size={12} />
+                Outside 10km Zone
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Checkout form */}
-        <div>
-          <div className="bg-white rounded-2xl border border-orange-100 p-6 shadow-sm">
+        <div className="flex flex-col h-full">
+          <div className="bg-white rounded-2xl border border-orange-100 p-6 shadow-sm flex-1">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Order Details</h2>
 
             <form onSubmit={handleSubmit(onCheckout)} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name *</label>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Full Name *</label>
                 <input
                   {...register('name', { required: true })}
                   defaultValue={user?.displayName || ''}
-                  className="w-full border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none rounded-xl px-4 py-2.5 text-sm"
+                  className="w-full border border-gray-100 focus:border-orange-400 focus:ring-4 focus:ring-orange-50 outline-none rounded-xl px-4 py-2.5 text-sm transition-all bg-gray-50/30"
                   placeholder="Your name"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Delivery Address (Search) *</label>
-                <div className="relative">
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Delivery Address (Search) *</label>
+                <div className="relative group">
                   <input
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    className="w-full border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none rounded-xl px-4 py-2.5 text-sm pr-24"
+                    className="w-full border border-gray-100 focus:border-orange-400 focus:ring-4 focus:ring-orange-50 outline-none rounded-xl px-4 py-2.5 text-sm pr-20 transition-all bg-gray-50/30"
                     placeholder="Type colony, area, or landmark..."
                   />
                   <button
                     type="button"
                     onClick={handleSearch}
                     disabled={locating || !address}
-                    className="absolute right-1.5 top-1.5 bottom-1.5 bg-orange-100 hover:bg-orange-200 text-orange-600 px-3 rounded-lg text-[10px] font-bold transition-colors disabled:opacity-50"
+                    className="absolute right-1.5 top-1.5 bottom-1.5 bg-orange-500 hover:bg-orange-600 text-white px-3 rounded-lg text-[10px] font-black tracking-widest transition-all disabled:opacity-50 shadow-sm"
                   >
                     SEARCH
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">Tip: If GPS is inaccurate, type your area name and click SEARCH to "calculate" your location.</p>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone *</label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      {...register('phone', { required: true, pattern: /^[6-9]\d{9}$/ })}
-                      type="tel"
-                      className="w-full border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none rounded-xl px-4 py-2.5 text-sm"
-                      placeholder="9876543210"
-                    />
-                  </div>
-                </div>
-                {errors.phone && <p className="text-red-500 text-xs mt-1">Enter a valid 10-digit Indian mobile number</p>}
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Phone *</label>
+                <input
+                  {...register('phone', { required: true, pattern: /^[6-9]\d{9}$/ })}
+                  type="tel"
+                  className="w-full border border-gray-100 focus:border-orange-400 focus:ring-4 focus:ring-orange-50 outline-none rounded-xl px-4 py-2.5 text-sm transition-all bg-gray-50/30 font-medium"
+                  placeholder="9876543210"
+                />
+                {errors.phone && <p className="text-red-500 text-[10px] mt-1 font-bold">Enter a valid 10-digit Indian mobile number</p>}
               </div>
 
-              <div className="pt-2">
+              <div className="pt-1">
                 <button
                   type="button"
                   onClick={handleLocate}
                   disabled={locating}
-                  className="w-full flex items-center justify-center gap-2 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 py-3 rounded-xl text-xs font-bold transition-all disabled:opacity-60"
+                  className="w-full flex items-center justify-center gap-2 bg-orange-50 text-orange-600 border border-orange-100/50 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-100 transition-all disabled:opacity-60"
                 >
-                  {locating ? <Loader2 size={14} className="animate-spin" /> : <Navigation size={14} />}
-                  USE MY CURRENT LOCATION
+                  {locating ? <Loader2 size={12} className="animate-spin" /> : <Navigation size={12} />}
+                  Auto-Locate GPS
                 </button>
               </div>
 
               {/* Order summary */}
-              <div className="bg-orange-50 rounded-xl p-4 space-y-2">
-                <p className="text-sm font-semibold text-gray-700 mb-2">Order Summary</p>
+              <div className={`bg-orange-50/50 rounded-xl border border-orange-100/50 ${items.length === 0 ? 'p-2' : 'p-4'} transition-all`}>
                 {items.length === 0 ? (
-                  <div className="text-center py-2">
-                    <p className="text-gray-400 text-sm mb-3">Your cart is empty</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Cart is empty</p>
                     <button
                       type="button"
                       onClick={() => navigate('/')}
-                      className="inline-flex items-center gap-2 text-xs bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold hover:bg-orange-200 transition-colors"
+                      className="text-[10px] font-black text-orange-600 hover:underline"
                     >
-                      <ShoppingBag size={14} /> BROWSE CATALOG
+                      Browse items →
                     </button>
                   </div>
                 ) : (
                   <>
-                    {items.map((i) => (
-                      <div key={i.id} className="flex justify-between text-sm text-gray-600">
-                        <span>{i.name} × {i.qty}</span>
-                        <span>₹{(i.price * i.qty).toFixed(0)}</span>
-                      </div>
-                    ))}
-                    <div className="border-t border-orange-200 pt-2 flex justify-between font-bold text-gray-900">
-                      <span>Total</span>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Order Summary</p>
+                    <div className="space-y-2 max-h-32 overflow-y-auto scrollbar-hide">
+                      {items.map((i) => (
+                        <div key={i.id} className="flex justify-between text-xs font-medium text-gray-600">
+                          <span>{i.name} × {i.qty}</span>
+                          <span className="text-gray-900">₹{(i.price * i.qty).toFixed(0)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="border-t border-orange-200/50 mt-3 pt-3 flex justify-between font-black text-sm text-gray-900">
+                      <span className="uppercase tracking-widest text-[10px]">Grand Total</span>
                       <span className="text-orange-600">₹{total.toFixed(2)}</span>
                     </div>
                   </>
@@ -272,10 +291,10 @@ export default function Location() {
               <button
                 type="submit"
                 disabled={paying || items.length === 0}
-                className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white py-3.5 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-orange-200"
+                className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400 text-white py-4 rounded-xl font-bold text-sm transition-all shadow-xl shadow-orange-200/50"
               >
-                {paying && <Loader2 size={16} className="animate-spin" />}
-                Pay ₹{total.toFixed(2)} via Razorpay
+                {paying && <Loader2 size={18} className="animate-spin" />}
+                PAY ₹{total.toFixed(2)} NOW
               </button>
             </form>
           </div>

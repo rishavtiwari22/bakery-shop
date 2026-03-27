@@ -56,8 +56,13 @@ export default function ItemCard({ item }) {
               </span>
             </div>
           )}
-          <div className="absolute top-2 left-2">
+          <div className="absolute top-2 left-2 flex flex-col gap-1.5">
             {isVeg ? <VEG_BADGE /> : <NON_VEG_BADGE />}
+            {item.offer > 0 && !isOutOfStock && (
+              <span className="bg-orange-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg shadow-orange-200 border border-orange-400 uppercase tracking-widest animate-pulse">
+                {item.offer}% OFF
+              </span>
+            )}
           </div>
           {/* Low stock badge */}
           {!isOutOfStock && item.stockQty > 0 && item.stockQty <= 5 && (
@@ -71,7 +76,12 @@ export default function ItemCard({ item }) {
         <div className="p-4">
           <div className="flex items-start justify-between gap-2 mb-1">
             <h3 className="font-semibold text-gray-900 text-base leading-tight">{item.name}</h3>
-            <span className="text-orange-600 font-bold text-sm whitespace-nowrap">₹{item.price}</span>
+            <div className="flex flex-col items-end">
+              <span className="text-orange-600 font-bold text-sm whitespace-nowrap">₹{(item.price * (1 - (item.offer || 0) / 100)).toFixed(0)}</span>
+              {item.offer > 0 && (
+                <span className="text-[10px] text-gray-400 line-through font-medium">₹{item.price}</span>
+              )}
+            </div>
           </div>
           
           {/* Rating */}

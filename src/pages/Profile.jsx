@@ -47,7 +47,7 @@ export default function Profile() {
     e.preventDefault()
     setSaving(true)
     try {
-      await updateUserProfile(user.uid, profile)
+      await updateUserProfile(user.uid, { ...profile, email: user.email })
       toast.success('Profile updated!')
     } catch (err) {
       toast.error('Failed to update profile')

@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { onAuthChange } from '../services/firebase'
+import { onAuthChange, updateUserProfile } from '../services/firebase'
 
-// Admin emails
 const ADMIN_EMAILS = ['rishav@navgurukul.org', 'admin@sweetbites.com']
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true'
 
@@ -22,7 +21,14 @@ export function AuthProvider({ children }) {
       return
     }
 
-    const unsub = onAuthChange((u) => {
+    const unsub = onAuthChange(async (u) => {
+      if (u) {
+        // Sync profile basics to Firestore
+        await updateUserProfile(u.uid, {
+          email: u.email,
+          name: u.displayName || ''
+        })
+      }
       setUser(u)
       setLoading(false)
     })

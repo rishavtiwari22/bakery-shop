@@ -5,22 +5,28 @@ service cloud.firestore {
     // Items: public read, only admin can write
     match /items/{itemId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.token.email == 'rishav@navgurukul.org';
+      allow write: if request.auth != null && 
+        (request.auth.token.email == 'rishav@navgurukul.org' || request.auth.token.email == 'admin@sweetbites.com');
     }
-
+    
     // Orders: authenticated customers can create; admin can read/update all
     match /orders/{orderId} {
       allow create: if request.auth != null;
       allow read: if request.auth != null &&
         (resource.data.customerId == request.auth.uid ||
-         request.auth.token.email == 'rishav@navgurukul.org');
+         request.auth.token.email == 'rishav@navgurukul.org' || 
+         request.auth.token.email == 'admin@sweetbites.com');
       allow update: if request.auth != null &&
-        request.auth.token.email == 'rishav@navgurukul.org';
+        (request.auth.token.email == 'rishav@navgurukul.org' || 
+         request.auth.token.email == 'admin@sweetbites.com');
     }
 
-    // Users: own profile only
+    // Users: own profile only, admin can read/write all
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && 
+        (request.auth.uid == userId || 
+         request.auth.token.email == 'rishav@navgurukul.org' || 
+         request.auth.token.email == 'admin@sweetbites.com');
     }
 
     // Reviews: public read, authenticated can create
