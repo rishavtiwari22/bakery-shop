@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Items: public read, only admin can write
+    match /items/{itemId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.email == 'rishav@navgurukul.org';
+    }
+
+    // Orders: authenticated customers can create; admin can read/update all
+    match /orders/{orderId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null &&
+        (resource.data.customerId == request.auth.uid ||
+         request.auth.token.email == 'rishav@navgurukul.org');
+      allow update: if request.auth != null &&
+        request.auth.token.email == 'rishav@navgurukul.org';
+    }
+
+    // Users: own profile only
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Reviews: public read, authenticated can create
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+    }
+  }
+}
