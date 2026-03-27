@@ -17,6 +17,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  setDoc,
   query,
   where,
   orderBy,
@@ -39,6 +40,18 @@ const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 export const storage = getStorage(app)
+
+// Enable offline persistence
+import { enableIndexedDbPersistence } from 'firebase/firestore'
+if (typeof window !== 'undefined') {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.')
+    } else if (err.code === 'unimplemented') {
+      console.warn('The current browser doesn\'t support all of the features needed to enable persistence')
+    }
+  })
+}
 
 const googleProvider = new GoogleAuthProvider()
 
@@ -72,21 +85,15 @@ export const onAuthChange = (callback) => onAuthStateChanged(auth, callback)
 // ─── Items ───────────────────────────────────────────────────────────────────
 
 export const fetchItems = async (filters = {}) => {
-  if (USE_MOCK) {
-    let filtered = [...MOCK_ITEMS]
-    if (filters.tag) {
-      filtered = filtered.filter(i => i.tags?.includes(filters.tag))
-    }
-    return filtered
-  }
-
   const itemsRef = collection(db, 'items')
-  let q = query(itemsRef, orderBy('createdAt', 'desc'))
-  if (filters.tag) {
-    q = query(itemsRef, where('tags', 'array-contains', filters.tag), orderBy('createdAt', 'desc'))
-  }
+  const q = query(itemsRef, orderBy('createdAt', 'desc'))
   const snap = await getDocs(q)
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  let items = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+
+  if (filters.tag) {
+    items = items.filter(i => i.tags?.includes(filters.tag))
+  }
+  return items
 }
 
 export const fetchItem = async (id) => {
@@ -155,6 +162,7 @@ export const fetchAllOrders = async () => {
   if (USE_MOCK) {
     return MOCK_ORDERS
   }
+  const q = query(collection(db, 'orders'), orderBy('timestamp', 'desc'))
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
@@ -275,4 +283,17 @@ export const uploadPhoto = async (file) => {
     console.error('Cloudinary Error:', err)
     throw new Error('Failed to upload image to Cloudinary')
   }
+}
+
+// ─── User Profile ────────────────────────────────────────────────────────────
+
+export const getUserProfile = async (uid) => {
+  if (USE_MOCK) return { uid, name: 'Demo User', phone: '9876543210' }
+  const snap = await getDoc(doc(db, 'users', uid))
+  return snap.exists() ? snap.data() : null
+}
+
+export const updateUserProfile = async (uid, data) => {
+  if (USE_MOCK) return Promise.resolve()
+  return setDoc(doc(db, 'users', uid), data, { merge: true })
 }

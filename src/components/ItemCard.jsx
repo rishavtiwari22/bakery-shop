@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ShoppingCart, Star } from 'lucide-react'
 import { useCartStore } from '../store/cartStore'
+import { optimizeImage } from '../services/imageUtils'
 import toast from 'react-hot-toast'
 
 const VEG_BADGE = () => (
@@ -37,7 +38,7 @@ export default function ItemCard({ item }) {
         <div className="relative overflow-hidden h-48">
           {item.photoUrl ? (
             <img
-              src={item.photoUrl}
+              src={optimizeImage(item.photoUrl, 400)}
               alt={item.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               loading="lazy"

@@ -37,7 +37,7 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-6">
             <Link to="/" className="text-gray-600 hover:text-orange-500 transition-colors text-sm font-medium">Catalog</Link>
             <Link to="/location" className="flex items-center gap-1 text-gray-600 hover:text-orange-500 transition-colors text-sm font-medium">
-              <MapPin size={14} /> Location
+              <MapPin size={14} />Order Online
             </Link>
             {user && (
               <Link to="/orders" className="text-gray-600 hover:text-orange-500 transition-colors text-sm font-medium">My Orders</Link>
@@ -65,7 +65,9 @@ export default function Navbar() {
             {/* User */}
             {user ? (
               <div className="hidden md:flex items-center gap-2">
-                <span className="text-sm text-gray-500">{user.displayName || user.email?.split('@')[0]}</span>
+                <Link to="/profile" className="text-sm text-gray-600 hover:text-orange-500 font-medium transition-colors">
+                  {user.displayName || user.email?.split('@')[0]}
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="p-2 text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
@@ -97,7 +99,7 @@ export default function Navbar() {
         {menuOpen && (
           <div className="md:hidden pb-4 space-y-1 border-t border-orange-100 pt-3">
             <Link to="/" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:bg-orange-50 rounded-lg text-sm">Catalog</Link>
-            <Link to="/location" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:bg-orange-50 rounded-lg text-sm">Location</Link>
+            <Link to="/location" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:bg-orange-50 rounded-lg text-sm font-medium">Order Online</Link>
             {user && <Link to="/orders" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:bg-orange-50 rounded-lg text-sm">My Orders</Link>}
             {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:bg-orange-50 rounded-lg text-sm">Admin Panel</Link>}
             {user ? (

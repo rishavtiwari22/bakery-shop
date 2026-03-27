@@ -4,6 +4,8 @@ import { fetchItems } from '../services/firebase'
 import ItemCard from '../components/ItemCard'
 import toast from 'react-hot-toast'
 
+import { useProductStore } from '../store/useProductStore'
+
 const FILTERS = [
   { label: 'All', value: '' },
   { label: 'Veg', value: 'veg' },
@@ -11,33 +13,19 @@ const FILTERS = [
 ]
 
 export default function Home() {
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { products, loading: storeLoading, init } = useProductStore()
   const [activeFilter, setActiveFilter] = useState('')
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    loadItems()
-  }, [activeFilter])
+    init()
+  }, [])
 
-  const loadItems = async () => {
-    setLoading(true)
-    try {
-      const data = await fetchItems(activeFilter ? { tag: activeFilter } : {})
-      setItems(data)
-    } catch (err) {
-      toast.error('Failed to load items')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const items = useMemo(() => {
+    return useProductStore.getState().getFilteredProducts(activeFilter, search)
+  }, [products, activeFilter, search])
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return items
-    return items.filter((i) =>
-      i.name.toLowerCase().includes(search.toLowerCase())
-    )
-  }, [items, search])
+  const loading = storeLoading && products.length === 0
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -49,7 +37,7 @@ export default function Home() {
           <div className="absolute top-8 right-48 text-4xl">🧁</div>
         </div>
         <div className="relative">
-          <p className="text-orange-100 text-sm font-medium mb-1">🏪 Surat's Finest Bakery</p>
+          <p className="text-orange-100 text-sm font-medium mb-1">Surat's Finest Bakery</p>
           <h1 className="text-3xl sm:text-4xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
             Fresh Baked, <br />
             <span className="text-orange-100">Delivered Warm</span>
@@ -94,7 +82,7 @@ export default function Home() {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="animate-spin text-orange-500" size={40} />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="text-center py-20">
           <div className="text-6xl mb-4">🍰</div>
           <h2 className="text-xl font-semibold text-gray-700 mb-2">No items found</h2>
@@ -108,9 +96,9 @@ export default function Home() {
         </div>
       ) : (
         <>
-          <p className="text-sm text-gray-500 mb-4">{filtered.length} item{filtered.length !== 1 ? 's' : ''} available</p>
+          <p className="text-sm text-gray-500 mb-4">{items.length} item{items.length !== 1 ? 's' : ''} available</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            {filtered.map((item) => (
+            {items.map((item) => (
               <ItemCard key={item.id} item={item} />
             ))}
           </div>

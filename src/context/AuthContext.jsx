@@ -16,7 +16,7 @@ export function AuthProvider({ children }) {
       setUser({
         uid: 'mock-admin-uid',
         email: 'admin@sweetbites.com',
-        displayName: 'Mock Admin',
+        displayName: 'Admin',
       })
       setLoading(false)
       return

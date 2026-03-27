@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { BAKERY_LAT, BAKERY_LNG } from '../services/geolocation'
+import RoutingControl from './RoutingControl'
 
 // Fix default marker icon issue with webpack/vite
 delete L.Icon.Default.prototype._getIconUrl
@@ -37,6 +38,19 @@ function ClickMarker({ onLocationSelect }) {
 }
 
 /**
+ * Helper to auto-center and zoom when user location changes
+ */
+function AutoCenter({ userLocation }) {
+  const map = useMap()
+  useEffect(() => {
+    if (userLocation) {
+      map.setView([userLocation.lat, userLocation.lng], 19, { animate: true }) // Zoom 19 is very detailed
+    }
+  }, [userLocation, map])
+  return null
+}
+
+/**
  * MapView component
  * @param {object} userLocation - { lat, lng } of selected delivery location
  * @param {function} onLocationSelect - callback when user clicks on map
@@ -47,7 +61,7 @@ export default function MapView({ userLocation, onLocationSelect, interactive = 
     <div className="w-full h-full rounded-xl overflow-hidden border border-orange-200 shadow-sm">
       <MapContainer
         center={[BAKERY_LAT, BAKERY_LNG]}
-        zoom={18}
+        zoom={16}
         scrollWheelZoom={true}
         style={{ height: '100%', width: '100%' }}
       >
@@ -55,6 +69,8 @@ export default function MapView({ userLocation, onLocationSelect, interactive = 
           attribution='Map data &copy; Google'
           url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
         />
+
+        <AutoCenter userLocation={userLocation} />
 
         {/* Bakery marker */}
         <Marker position={[BAKERY_LAT, BAKERY_LNG]} icon={bakeryIcon}>
@@ -66,12 +82,18 @@ export default function MapView({ userLocation, onLocationSelect, interactive = 
 
         {/* User delivery marker */}
         {userLocation && (
-          <Marker position={[userLocation.lat, userLocation.lng]} icon={userIcon}>
-            <Popup>
-              <div className="text-sm font-semibold">📍 Your Delivery Location</div>
-              <div className="text-xs text-gray-500">{userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}</div>
-            </Popup>
-          </Marker>
+          <>
+            <Marker position={[userLocation.lat, userLocation.lng]} icon={userIcon}>
+              <Popup>
+                <div className="text-sm font-semibold">📍 Your Delivery Location</div>
+                <div className="text-xs text-gray-500">{userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}</div>
+              </Popup>
+            </Marker>
+            <RoutingControl 
+              bakeryCoords={{ lat: BAKERY_LAT, lng: BAKERY_LNG }} 
+              userCoords={userLocation} 
+            />
+          </>
         )}
 
         {/* Click handler */}

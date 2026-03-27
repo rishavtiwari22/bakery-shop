@@ -1,10 +1,10 @@
-import { useState } from 'react'
-import { MapPin, Navigation, Loader2, CheckCircle, AlertTriangle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { MapPin, Navigation, Loader2, CheckCircle, AlertTriangle, ShoppingBag } from 'lucide-react'
 import MapView from '../components/MapView'
 import { useCartStore } from '../store/cartStore'
 import { useAuth } from '../context/AuthContext'
 import { getCurrentPosition, distanceFromBakery, reverseGeocode, MAX_DELIVERY_KM } from '../services/geolocation'
-import { createOrder } from '../services/firebase'
+import { createOrder, getUserProfile } from '../services/firebase'
 import { initiatePayment } from '../services/razorpay'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
@@ -21,7 +21,27 @@ export default function Location() {
   const [paying, setPaying] = useState(false)
   const total = getTotal()
 
-  const { register, handleSubmit, formState: { errors } } = useForm()
+  const { register, handleSubmit, reset, formState: { errors } } = useForm()
+
+  useEffect(() => {
+    if (user) {
+      loadUserProfile()
+    }
+  }, [user])
+
+  const loadUserProfile = async () => {
+    try {
+      const p = await getUserProfile(user.uid)
+      if (p) {
+        reset({
+          name: p.name || user.displayName || '',
+          phone: p.phone || ''
+        })
+      }
+    } catch (err) {
+      console.error('Failed to load profile:', err)
+    }
+  }
 
   const handleLocate = async () => {
     setLocating(true)
@@ -61,7 +81,7 @@ export default function Location() {
     initiatePayment({
       amount: total,
       name: formData.name || user.displayName || 'Customer',
-      email: formData.email || user.email,
+      email: user.email,
       contact: formData.phone || '',
       onSuccess: async (response) => {
         setPaying(true)
@@ -69,7 +89,7 @@ export default function Location() {
           await createOrder({
             customerId: user.uid,
             customerName: formData.name || user.displayName,
-            customerEmail: formData.email || user.email,
+            customerEmail: user.email,
             customerPhone: formData.phone,
             items: items.map((i) => ({ itemId: i.id, name: i.name, qty: i.qty, price: i.price })),
             total,
@@ -104,14 +124,6 @@ export default function Location() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium text-gray-700">📍 Pin your delivery location</p>
-            <button
-              onClick={handleLocate}
-              disabled={locating}
-              className="flex items-center gap-1.5 text-sm bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-lg font-medium transition-colors disabled:opacity-60"
-            >
-              {locating ? <Loader2 size={14} className="animate-spin" /> : <Navigation size={14} />}
-              Use My Location
-            </button>
           </div>
 
           <div className="h-72 sm:h-96 rounded-xl overflow-hidden">
@@ -147,31 +159,48 @@ export default function Location() {
                   placeholder="Your name"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-                <input
-                  {...register('email')}
-                  defaultValue={user?.email || ''}
-                  type="email"
-                  className="w-full border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none rounded-xl px-4 py-2.5 text-sm"
-                />
-              </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone *</label>
-                <input
-                  {...register('phone', { required: true, pattern: /^[6-9]\d{9}$/ })}
-                  type="tel"
-                  className="w-full border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none rounded-xl px-4 py-2.5 text-sm"
-                  placeholder="9876543210"
-                />
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      {...register('phone', { required: true, pattern: /^[6-9]\d{9}$/ })}
+                      type="tel"
+                      className="w-full border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none rounded-xl px-4 py-2.5 text-sm"
+                      placeholder="9876543210"
+                    />
+                  </div>
+                </div>
                 {errors.phone && <p className="text-red-500 text-xs mt-1">Enter a valid 10-digit Indian mobile number</p>}
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleLocate}
+                  disabled={locating}
+                  className="w-full flex items-center justify-center gap-2 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 py-3 rounded-xl text-xs font-bold transition-all disabled:opacity-60"
+                >
+                  {locating ? <Loader2 size={14} className="animate-spin" /> : <Navigation size={14} />}
+                  USE MY CURRENT LOCATION
+                </button>
               </div>
 
               {/* Order summary */}
               <div className="bg-orange-50 rounded-xl p-4 space-y-2">
                 <p className="text-sm font-semibold text-gray-700 mb-2">Order Summary</p>
                 {items.length === 0 ? (
-                  <p className="text-gray-400 text-sm">Cart is empty</p>
+                  <div className="text-center py-2">
+                    <p className="text-gray-400 text-sm mb-3">Your cart is empty</p>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/')}
+                      className="inline-flex items-center gap-2 text-xs bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold hover:bg-orange-200 transition-colors"
+                    >
+                      <ShoppingBag size={14} /> BROWSE CATALOG
+                    </button>
+                  </div>
                 ) : (
                   <>
                     {items.map((i) => (

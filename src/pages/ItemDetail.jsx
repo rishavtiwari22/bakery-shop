@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Minus, ShoppingCart, Loader2, Star, MessageSquare, Sen
 import { fetchItem, fetchReviews, addReview, checkUserHasOrdered } from '../services/firebase'
 import { useCartStore } from '../store/cartStore'
 import { useAuth } from '../context/AuthContext'
+import { optimizeImage } from '../services/imageUtils'
 import toast from 'react-hot-toast'
 
 export default function ItemDetail() {
@@ -111,7 +112,7 @@ export default function ItemDetail() {
           {/* Image */}
           <div className="md:w-1/2 relative">
             {item.photoUrl ? (
-              <img src={item.photoUrl} alt={item.name} className="w-full h-72 md:h-full object-cover" />
+              <img src={optimizeImage(item.photoUrl, 800)} alt={item.name} className="w-full h-72 md:h-full object-cover" />
             ) : (
               <div className="w-full h-72 md:h-full bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center text-8xl">
                 🍰

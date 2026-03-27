@@ -11,6 +11,7 @@ import AdminItemForm from '../components/AdminItemForm'
 import AdminItemList from '../components/AdminItemList'
 import toast from 'react-hot-toast'
 import STS from 'sts-bolo'
+import { useProductStore } from '../store/useProductStore'
 
 const tts = new STS()
 
@@ -32,7 +33,9 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadData()
+  }, [])
 
+  useEffect(() => {
     // Real-time listener for orders & voice notifications
     const unsub = subscribeToOrders((newOrders) => {
       setOrders((prevOrders) => {
@@ -66,7 +69,8 @@ export default function AdminDashboard() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const i = await fetchItems()
+      await useProductStore.getState().refresh()
+      const i = useProductStore.getState().products
       setItems(i)
     } catch (err) {
       toast.error('Failed to load items')
