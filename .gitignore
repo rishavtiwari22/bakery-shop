@@ -1,21 +1,23 @@
-# Logs
-
-.env
+# Logs and Build
 node_modules
-
-
-
-logs
+dist
+dist-ssr
 *.log
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 *.local
 
 # Editor directories and files
@@ -28,3 +30,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Security
+*.pem
+serviceAccountKey.json
+
