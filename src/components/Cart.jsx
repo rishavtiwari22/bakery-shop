@@ -42,7 +42,7 @@ export default function Cart() {
             <p className="text-gray-500 font-medium">Your cart is empty</p>
             <p className="text-gray-400 text-sm mt-1">Add some delicious items!</p>
             <button
-              onClick={closeCart}
+              onClick={() => { closeCart(); navigate('/') }}
               className="mt-6 bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-colors"
             >
               Browse Items
