@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 
 export default function Cart() {
-  const { items, removeItem, updateQty, closeCart, getTotal } = useCartStore()
+  const { items, removeItem, updateQty, closeCart, getTotal, orderNotes, setOrderNotes } = useCartStore()
   const navigate = useNavigate()
   const total = getTotal()
 
@@ -98,8 +98,8 @@ export default function Cart() {
             <div className="mt-6">
               <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Special Instructions</label>
               <textarea
-                value={useCartStore(s => s.orderNotes)}
-                onChange={(e) => useCartStore.getState().setOrderNotes(e.target.value)}
+                value={orderNotes}
+                onChange={(e) => setOrderNotes(e.target.value)}
                 placeholder="e.g. Less chilli, no egg, extra spicy..."
                 className="w-full bg-orange-50/50 border border-orange-100 rounded-xl p-3 text-sm focus:outline-none focus:border-orange-400 transition-colors resize-none h-20"
               />
