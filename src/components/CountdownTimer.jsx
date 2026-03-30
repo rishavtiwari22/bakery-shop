@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-export default function CountdownTimer({ targetTime, onEnd }) {
+export default function CountdownTimer({ targetTime, onEnd, onTick }) {
   const [timeLeft, setTimeLeft] = useState('')
 
   useEffect(() => {
@@ -11,6 +11,10 @@ export default function CountdownTimer({ targetTime, onEnd }) {
       const target = targetTime.toDate ? targetTime.toDate().getTime() : new Date(targetTime).getTime()
       const now = Date.now()
       const diff = target - now
+      const seconds = Math.max(0, Math.floor(diff / 1000))
+
+      // Trigger callback with seconds remaining
+      onTick?.(seconds)
 
       if (diff <= 0) {
         setTimeLeft('00:00')
@@ -18,15 +22,15 @@ export default function CountdownTimer({ targetTime, onEnd }) {
         return
       }
 
-      const mins = Math.floor(diff / 1000 / 60)
-      const secs = Math.floor((diff / 1000) % 60)
+      const mins = Math.floor(seconds / 60)
+      const secs = seconds % 60
       setTimeLeft(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`)
     }
 
     calculate()
     const timer = setInterval(calculate, 1000)
     return () => clearInterval(timer)
-  }, [targetTime, onEnd])
+  }, [targetTime, onEnd, onTick])
 
   if (!targetTime) return null
 

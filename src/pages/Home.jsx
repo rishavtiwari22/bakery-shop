@@ -12,10 +12,14 @@ const FILTERS = [
   { label: 'Non-Veg', value: 'non-veg' },
 ]
 
+import { useSettingsStore } from '../store/useSettingsStore'
+import bakeryData from '../data/bakeryData.json'
+
 export default function Home() {
   const { products, loading: storeLoading, init } = useProductStore()
   const [activeFilter, setActiveFilter] = useState('')
   const [search, setSearch] = useState('')
+  const settings = useSettingsStore(s => s.settings) || bakeryData
 
   useEffect(() => {
     init()
@@ -37,13 +41,13 @@ export default function Home() {
           <div className="absolute top-8 right-48 text-4xl">🧁</div>
         </div>
         <div className="relative">
-          <p className="text-orange-100 text-sm font-medium mb-1">Surat's Finest Bakery</p>
-          <h1 className="text-3xl sm:text-4xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
-            Fresh Baked, <br />
-            <span className="text-orange-100">Delivered Warm</span>
+          <p className="text-orange-100 text-sm font-medium mb-1">{settings.tagline}</p>
+          <h1 className="text-2xl sm:text-4xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
+            {settings.name}, <br className="sm:hidden" />
+            <span className="text-orange-100">Freshly Baked for You</span>
           </h1>
           <p className="text-orange-100 text-sm max-w-xs">
-            Order cakes, breads & pastries — delivered within 10km of Surat city.
+            {settings.description || settings.detailedDescription}
           </p>
         </div>
       </div>
@@ -60,12 +64,12 @@ export default function Home() {
             className="w-full pl-10 pr-4 py-3 border border-gray-200 bg-white rounded-xl focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-sm"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 pb-2 overflow-x-auto scrollbar-hide">
           {FILTERS.map((f) => (
             <button
               key={f.value}
               onClick={() => { setActiveFilter(f.value); setSearch('') }}
-              className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
+              className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                 activeFilter === f.value
                   ? 'bg-orange-500 text-white shadow-md shadow-orange-200'
                   : 'bg-white text-gray-600 border border-gray-200 hover:border-orange-300'

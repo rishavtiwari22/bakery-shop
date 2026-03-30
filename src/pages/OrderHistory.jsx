@@ -5,6 +5,8 @@ import { getEstimatedDeliveryTime } from '../services/geolocation'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import toast from 'react-hot-toast'
+import { useSettingsStore } from '../store/useSettingsStore'
+import bakeryData from '../data/bakeryData.json'
 
 const STATUS_CONFIG = {
   pending: { label: 'Pending', icon: Clock, color: 'bg-yellow-100 text-yellow-700', step: 1 },
@@ -17,6 +19,7 @@ export default function OrderHistory() {
   const { user } = useAuth()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+  const currency = useSettingsStore((s) => s.settings.currency)
 
   useEffect(() => {
     if (!user) return
@@ -70,6 +73,21 @@ export default function OrderHistory() {
                     </span>
                   </div>
 
+                  {order.status === 'delivered' && order.deliveredAt && (
+                    <div className="flex flex-col gap-2 mb-4 bg-green-50 p-4 rounded-2xl border border-green-100 shadow-inner">
+                      <div className="flex items-center justify-between text-xs font-bold text-green-600 uppercase tracking-widest">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 size={14} />
+                          <span>Delivered At</span>
+                        </div>
+                        <span className="opacity-60">Verified</span>
+                      </div>
+                      <p className="text-sm font-bold text-gray-800">
+                        {order.deliveredAt.toDate ? order.deliveredAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Delivery Estimation */}
                   {order.status !== 'delivered' && (
                     <div className="flex flex-col gap-2 mb-4 bg-orange-50 p-4 rounded-2xl border border-orange-100 shadow-inner">
@@ -106,7 +124,7 @@ export default function OrderHistory() {
                     {order.items?.map((i, idx) => (
                       <div key={idx} className="flex justify-between text-sm text-gray-700">
                         <span className="font-medium">{i.name} × {i.qty}</span>
-                        <span className="font-bold">₹{(i.price * i.qty).toFixed(0)}</span>
+                        <span className="font-bold">{currency}{(i.price * i.qty).toFixed(0)}</span>
                       </div>
                     ))}
                   </div>
@@ -130,7 +148,7 @@ export default function OrderHistory() {
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Total Paid</p>
-                      <p className="text-xl font-black text-orange-600">₹{order.total?.toFixed(0)}</p>
+                      <p className="text-xl font-black text-orange-600">{currency}{order.total?.toFixed(0)}</p>
                     </div>
                   </div>
 
@@ -138,7 +156,7 @@ export default function OrderHistory() {
                   <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between">
                     <p className="text-[10px] text-gray-400 font-medium">Need help with this order?</p>
                     <a 
-                      href="tel:9336648747"
+                      href={`tel:${bakeryData.phone.replace(/\s+/g, '')}`}
                       className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md shadow-green-100"
                     >
                       <PhoneCall size={14} /> Call Bakery

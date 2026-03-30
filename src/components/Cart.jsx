@@ -2,11 +2,13 @@ import { X, Trash2, Plus, Minus, ShoppingBag } from 'lucide-react'
 import { useCartStore } from '../store/cartStore'
 import { Link, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
+import { useSettingsStore } from '../store/useSettingsStore'
 
 export default function Cart() {
   const { items, removeItem, updateQty, closeCart, getTotal, orderNotes, setOrderNotes } = useCartStore()
   const navigate = useNavigate()
   const total = getTotal()
+  const currency = useSettingsStore((s) => s.settings.currency)
 
   // Close on Escape
   useEffect(() => {
@@ -53,17 +55,29 @@ export default function Cart() {
             <div className="space-y-4">
               {items.map((item) => (
                 <div key={item.id} className="flex gap-3 bg-orange-50 rounded-xl p-3">
-                  <img
-                    src={item.photoUrl || 'https://placehold.co/60x60/ffd7aa/f97316?text=🍰'}
-                    alt={item.name}
-                    className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                  />
+                  <Link 
+                    to={`/item/${item.id}`} 
+                    onClick={closeCart}
+                    className="shrink-0 group"
+                  >
+                    <img
+                      src={item.photoUrl || 'https://placehold.co/60x60/ffd7aa/f97316?text=🍰'}
+                      alt={item.name}
+                      className="w-16 h-16 rounded-lg object-cover group-hover:scale-105 transition-transform"
+                    />
+                  </Link>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 text-sm truncate">{item.name}</p>
+                    <Link 
+                      to={`/item/${item.id}`} 
+                      onClick={closeCart}
+                      className="hover:text-orange-600 transition-colors"
+                    >
+                      <p className="font-medium text-gray-900 text-sm truncate">{item.name}</p>
+                    </Link>
                     <div className="flex items-center gap-2">
-                      <p className="text-orange-600 font-bold text-sm">₹{item.price}</p>
+                      <p className="text-orange-600 font-bold text-sm">{currency}{item.price}</p>
                       {item.offer > 0 && (
-                        <p className="text-[10px] text-gray-400 line-through">₹{item.originalPrice}</p>
+                        <p className="text-[10px] text-gray-400 line-through">{currency}{item.originalPrice}</p>
                       )}
                     </div>
                     {/* Qty controls */}
@@ -113,7 +127,7 @@ export default function Cart() {
           <div className="border-t border-gray-100 px-5 py-4 space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-gray-600 text-sm">Subtotal</span>
-              <span className="font-bold text-gray-900">₹{total.toFixed(2)}</span>
+              <span className="font-bold text-gray-900">{currency}{total.toFixed(2)}</span>
             </div>
             <button
               onClick={() => { closeCart(); navigate('/location') }}

@@ -1,38 +1,44 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'rishav@navgurukul.org' || 
+        request.auth.token.email == 'admin@nicebakery.com'
+      );
+    }
 
     // Items: public read, only admin can write
     match /items/{itemId} {
       allow read: if true;
-      allow write: if request.auth != null && 
-        (request.auth.token.email == 'rishav@navgurukul.org' || request.auth.token.email == 'admin@sweetbites.com');
+      allow write: if isAdmin();
     }
     
     // Orders: authenticated customers can create; admin can read/update all
     match /orders/{orderId} {
       allow create: if request.auth != null;
       allow read: if request.auth != null &&
-        (resource.data.customerId == request.auth.uid ||
-         request.auth.token.email == 'rishav@navgurukul.org' || 
-         request.auth.token.email == 'admin@sweetbites.com');
-      allow update: if request.auth != null &&
-        (request.auth.token.email == 'rishav@navgurukul.org' || 
-         request.auth.token.email == 'admin@sweetbites.com');
+        (resource.data.customerId == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
     }
 
     // Users: own profile only, admin can read/write all
     match /users/{userId} {
       allow read, write: if request.auth != null && 
-        (request.auth.uid == userId || 
-         request.auth.token.email == 'rishav@navgurukul.org' || 
-         request.auth.token.email == 'admin@sweetbites.com');
+        (request.auth.uid == userId || isAdmin());
     }
 
     // Reviews: public read, authenticated can create
     match /reviews/{reviewId} {
       allow read: if true;
       allow create: if request.auth != null;
+    }
+
+    // Settings: public read, admin write
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

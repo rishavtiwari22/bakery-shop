@@ -7,6 +7,9 @@ export const useCartStore = create(
       items: [], // [{ id, name, price, photoUrl, qty, stockQty }]
       orderNotes: '',
       isCartOpen: false,
+      deliveryDetails: { distance: 0, fee: 0 },
+
+      setDeliveryDetails: (details) => set({ deliveryDetails: details }),
 
       // ─── Cart actions ─────────────────────────────────────────────
       addItem: (product, qty = 1) => {
@@ -57,7 +60,7 @@ export const useCartStore = create(
         get().items.reduce((sum, i) => sum + i.qty, 0),
     }),
     {
-      name: 'sweetbites-cart',
+      name: 'nicebakery-cart',
       partialize: (state) => ({ items: state.items, orderNotes: state.orderNotes }),
     }
   )

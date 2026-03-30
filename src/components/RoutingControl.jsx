@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
 
-export default function RoutingControl({ bakeryCoords, userCoords }) {
+export default function RoutingControl({ bakeryCoords, userCoords, onDistanceChange }) {
   const map = useMap()
 
   useEffect(() => {
@@ -10,59 +10,42 @@ export default function RoutingControl({ bakeryCoords, userCoords }) {
 
     let routingControl = null
     let timer = null
-    let retryInterval = null
 
-    const tryInitRouting = () => {
-      const Routing = L.Routing || (window.L && window.L.Routing)
-      if (!Routing || !Routing.control) return false
+    const Routing = L.Routing || (window.L && window.L.Routing)
+    if (!Routing || !Routing.control) return
 
-      routingControl = Routing.control({
-        waypoints: [
-          L.latLng(bakeryCoords.lat, bakeryCoords.lng),
-          L.latLng(userCoords.lat, userCoords.lng)
-        ],
-        router: L.Routing.osrmv1({
-          serviceUrl: 'https://router.project-osrm.org/route/v1'
-        }),
-        routeWhileDragging: false,
-        addWaypoints: false,
-        draggableWaypoints: false,
-        fitSelectedRoutes: true,
-        showAlternatives: false,
-        lineOptions: {
-          styles: [{ color: '#f97316', weight: 6, opacity: 0.8 }]
-        },
-        createMarker: () => null,
-        autoRoute: true
-      })
+    routingControl = Routing.control({
+      waypoints: [
+        L.latLng(bakeryCoords.lat, bakeryCoords.lng),
+        L.latLng(userCoords.lat, userCoords.lng)
+      ],
+      router: L.Routing.osrmv1({
+        serviceUrl: 'https://router.project-osrm.org/route/v1'
+      }),
+      routeWhileDragging: false,
+      addWaypoints: false,
+      draggableWaypoints: false,
+      fitSelectedRoutes: true,
+      showAlternatives: false,
+      lineOptions: {
+        styles: [{ color: '#f97316', weight: 6, opacity: 0.8 }]
+      },
+      createMarker: () => null,
+      autoRoute: true
+    }).addTo(map)
 
-      try {
-        routingControl.addTo(map)
-        timer = setTimeout(() => {
-          const container = routingControl.getContainer()
-          if (container) container.style.display = 'none'
-        }, 200)
-        return true
-      } catch (err) {
-        console.error('Routing addTo map failed:', err)
-        return false
-      }
-    }
+    routingControl.on('routesfound', (e) => {
+      const routes = e.routes
+      const dist = routes[0].summary.totalDistance / 1000 // KM
+      onDistanceChange?.(dist)
+    })
 
-    // Try immediately
-    if (!tryInitRouting()) {
-      // If failed, retry every 500ms for up to 5 seconds
-      let attempts = 0
-      retryInterval = setInterval(() => {
-        attempts++
-        if (tryInitRouting() || attempts > 10) {
-          clearInterval(retryInterval)
-        }
-      }, 500)
-    }
+    timer = setTimeout(() => {
+      const container = routingControl.getContainer()
+      if (container) container.style.display = 'none'
+    }, 200)
 
     return () => {
-      if (retryInterval) clearInterval(retryInterval)
       if (timer) clearTimeout(timer)
       if (map && routingControl) {
         try {

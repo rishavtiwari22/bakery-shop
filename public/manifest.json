@@ -1,6 +1,6 @@
 {
-  "short_name": "SweetBites",
-  "name": "SweetBites - Surat Bakery",
+  "short_name": "Nice Bakery",
+  "name": "Nice Bakery - Jashpur's Finest",
   "icons": [
     { "src": "/favicon.ico", "sizes": "64x64 32x32 24x24 16x16", "type": "image/x-icon" }
   ],
@@ -8,7 +8,7 @@
   "display": "standalone",
   "theme_color": "#f97316",
   "background_color": "#fff7ed",
-  "description": "SweetBites - Order fresh cakes and breads online in Surat, Gujarat.",
+  "description": "Nice Bakery - Order fresh cakes and breads online in Jashpur, Chhattisgarh.",
   "categories": ["food", "shopping"],
   "lang": "en-IN"
 }

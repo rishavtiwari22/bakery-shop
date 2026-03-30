@@ -1,0 +1,32 @@
+{
+  "name": "Nice Bakery",
+  "nameHindi": "नाइस बेकरी",
+  "tagline": "नाइस बेकरी — Jashpur's Finest",
+  "description": "One of the best Bakery of Jashpur city. Crafting premium delights and artisanal breads fresh for you every single day. Authorized Coca-Cola distributor.",
+  "detailedDescription": "Bakery and Cake Shop at Maharaja Chowk. Best birthday cakes and daily delights delivered warm.",
+  "address": "B.S Market, Maharaja Chowk, Jashpur Nagar, Chhattisgarh 496331",
+  "phone": "9336648747",
+  "whatsapp": "919336648747",
+  "email": "admin@nicebakery.com",
+  "hours": "Open · Closes 9:30 pm",
+  "location": {
+    "lat": 22.88602266954327,
+    "lng": 84.13721419203492,
+    "plusCode": "V4PP+CX Purani Toli, Jashpur Nagar, Chhattisgarh",
+    "embedUrl": "https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d440.6012510704221!2d84.13721419203492!3d22.88602266954327!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x398a67841398f97f%3A0xba32971f324dcaf4!2sNICE%20BAKERY!5e1!3m2!1sen!2sin!4v1774684564641!5m2!1sen!2sin"
+  },
+  "deliveryRules": {
+    "baseFee": 20,
+    "feePerKm": 5,
+    "freeAbove": 500,
+    "maxKm": 10
+  },
+  "social": {
+    "facebook": "https://facebook.com",
+    "instagram": "https://instagram.com",
+    "justdial": "https://www.justdial.com/Jashpur/Nice-Bakery-Maharaja-Chowk/9999P7763.7763.181126145325.N4L3_BZDET"
+  },
+  "city": "Jashpur",
+  "logoEmoji": "🧁",
+  "currency": "₹"
+}
