@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, Circle } from 'react-leaflet'
 import L from 'leaflet'
-import { BAKERY_LAT, BAKERY_LNG } from '../services/geolocation'
+import { BAKERY_LAT, BAKERY_LNG, getBakeryCoords } from '../services/geolocation'
+import { useSettingsStore } from '../store/useSettingsStore'
 import RoutingControl from './RoutingControl'
 
 // Fix default marker icon issue with webpack/vite
@@ -56,11 +57,14 @@ function AutoCenter({ userLocation }) {
  * @param {function} onLocationSelect - callback when user clicks on map
  * @param {boolean} interactive - whether user can click to set delivery pin
  */
-export default function MapView({ userLocation, onLocationSelect, interactive = true }) {
+export default function MapView({ userLocation, onLocationSelect, onDistanceChange, interactive = true }) {
+  const settings = useSettingsStore(s => s.settings)
+  const bakeryCoords = getBakeryCoords()
+  
   return (
     <div className="w-full h-full rounded-xl overflow-hidden border border-orange-200 shadow-sm">
       <MapContainer
-        center={[BAKERY_LAT, BAKERY_LNG]}
+        center={[bakeryCoords.lat, bakeryCoords.lng]}
         zoom={16}
         scrollWheelZoom={true}
         style={{ height: '100%', width: '100%' }}
@@ -73,10 +77,10 @@ export default function MapView({ userLocation, onLocationSelect, interactive = 
         <AutoCenter userLocation={userLocation} />
 
         {/* Bakery marker */}
-        <Marker position={[BAKERY_LAT, BAKERY_LNG]} icon={bakeryIcon}>
+        <Marker position={[bakeryCoords.lat, bakeryCoords.lng]} icon={bakeryIcon}>
           <Popup>
-            <div className="text-sm font-semibold">🏪 SweetBites Bakery</div>
-            <div className="text-xs text-gray-500">Jashpur, Chhattisgarh</div>
+            <div className="text-sm font-semibold">🏪 {settings?.name || 'Nice Bakery'}</div>
+            <div className="text-xs text-gray-500">{settings?.address || 'Jashpur, Chhattisgarh'}</div>
           </Popup>
         </Marker>
 
@@ -109,6 +113,7 @@ export default function MapView({ userLocation, onLocationSelect, interactive = 
             <RoutingControl 
               bakeryCoords={{ lat: BAKERY_LAT, lng: BAKERY_LNG }} 
               userCoords={userLocation} 
+              onDistanceChange={onDistanceChange}
             />
           </>
         )}

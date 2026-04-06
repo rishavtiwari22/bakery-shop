@@ -47,7 +47,7 @@ export default function AdminDeliveryMap({ orders }) {
         {/* Bakery */}
         <Marker position={[BAKERY_LAT, BAKERY_LNG]} icon={bakeryIcon}>
           <Popup>
-            <div className="text-sm font-bold text-orange-600">🏪 SweetBites Bakery (Hub)</div>
+            <div className="text-sm font-bold text-orange-600">🏪 Nice Bakery (Hub)</div>
           </Popup>
         </Marker>
 

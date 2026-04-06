@@ -1,7 +1,16 @@
-// Bakery location: NavGurukul Jashpur Campus
-export const BAKERY_LAT = 22.8821
-export const BAKERY_LNG = 84.1683
-export const MAX_DELIVERY_KM = 10
+import bakeryData from '../data/bakeryData.json'
+import { useSettingsStore } from '../store/useSettingsStore'
+
+// Get current bakery location from store or fallback to static data
+export const getBakeryCoords = () => {
+  const settings = useSettingsStore.getState().settings
+  return settings?.location || bakeryData.location
+}
+
+// Keep constants for legacy or initial state, but components should use getBakeryCoords()
+export const BAKERY_LAT = bakeryData.location.lat
+export const BAKERY_LNG = bakeryData.location.lng
+export const DEFAULT_MAX_KM = 10
 
 /**
  * Haversine formula – returns distance in km between two lat/lng points.

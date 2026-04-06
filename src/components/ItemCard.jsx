@@ -3,6 +3,7 @@ import { ShoppingCart, Star } from 'lucide-react'
 import { useCartStore } from '../store/cartStore'
 import { optimizeImage } from '../services/imageUtils'
 import toast from 'react-hot-toast'
+import { useSettingsStore } from '../store/useSettingsStore'
 
 const VEG_BADGE = () => (
   <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-300">
@@ -20,6 +21,7 @@ const NON_VEG_BADGE = () => (
 
 export default function ItemCard({ item }) {
   const addItem = useCartStore((s) => s.addItem)
+  const currency = useSettingsStore((s) => s.settings.currency)
 
   const handleAdd = (e) => {
     e.preventDefault()
@@ -75,11 +77,11 @@ export default function ItemCard({ item }) {
         {/* Info */}
         <div className="p-4">
           <div className="flex items-start justify-between gap-2 mb-1">
-            <h3 className="font-semibold text-gray-900 text-base leading-tight">{item.name}</h3>
+            <h3 className="font-semibold text-gray-900 text-base leading-tight truncate flex-1">{item.name}</h3>
             <div className="flex flex-col items-end">
-              <span className="text-orange-600 font-bold text-sm whitespace-nowrap">₹{(item.price * (1 - (item.offer || 0) / 100)).toFixed(0)}</span>
+              <span className="text-orange-600 font-bold text-sm whitespace-nowrap">{currency}{(item.price * (1 - (item.offer || 0) / 100)).toFixed(0)}</span>
               {item.offer > 0 && (
-                <span className="text-[10px] text-gray-400 line-through font-medium">₹{item.price}</span>
+                <span className="text-[10px] text-gray-400 line-through font-medium">{currency}{item.price}</span>
               )}
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Package, Plus, Loader2, ChefHat, TrendingUp, ShoppingBag, Clock, CheckCircle2, User, Mail, Phone, Trash2, Filter, ChevronDown } from 'lucide-react'
+import { Package, Plus, Loader2, ChefHat, TrendingUp, ShoppingBag, Clock, CheckCircle2, User, Mail, Phone, Trash2, Filter, ChevronDown, AlertTriangle } from 'lucide-react'
 import { 
   fetchAllOrders, 
   fetchItems, 
@@ -9,8 +9,10 @@ import {
   fetchAllUsers,
   seedDatabase,
   updateOrderTimer,
-  deleteOrder
+  deleteOrder,
+  updateUserRole
 } from '../services/firebase'
+import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import OrderMiniMap from '../components/OrderMiniMap'
 import AdminItemForm from '../components/AdminItemForm'
@@ -18,6 +20,8 @@ import AdminItemList from '../components/AdminItemList'
 import toast from 'react-hot-toast'
 import STS from 'sts-bolo'
 import { useProductStore } from '../store/useProductStore'
+import { useSettingsStore } from '../store/useSettingsStore'
+import { Settings, Save, Globe, Map } from 'lucide-react'
 
 const tts = new STS()
 
@@ -30,7 +34,7 @@ const STATUS_COLOR = {
 }
 
 export default function AdminDashboard() {
-  const [tab, setTab] = useState('orders') // 'orders' | 'items'
+  const [tab, setTab] = useState('orders') // 'orders' | 'items' | 'users' | 'settings'
   const [orders, setOrders] = useState([])
   const [items, setItems] = useState([])
   const [users, setUsers] = useState([])
@@ -41,6 +45,19 @@ export default function AdminDashboard() {
   const [userSearch, setUserSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | STATUS_OPTIONS
   const [seeding, setSeeding] = useState(false)
+  const [notifiedLowTime, setNotifiedLowTime] = useState(new Set())
+  const { user, isSuperAdmin } = useAuth()
+  
+  const settings = useSettingsStore(s => s.settings)
+  const updateSettings = useSettingsStore(s => s.update)
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [localSettings, setLocalSettings] = useState(null)
+
+  useEffect(() => {
+    if (settings) {
+      setLocalSettings(settings)
+    }
+  }, [settings])
 
   useEffect(() => {
     loadData()
@@ -63,7 +80,11 @@ export default function AdminDashboard() {
             const notes = order.notes ? `. Special Instructions: ${order.notes}` : ''
             console.log('Order from:', name, 'Voice:', voiceEnabled)
             if (voiceEnabled) {
-              tts.speak(`New order received from ${name}${notes}`, 'hi')
+              try {
+                tts.speak(`New order received from ${name}${notes}`, 'hi')
+              } catch (e) {
+                console.warn('TTS Voice error:', e.message)
+              }
             }
             toast.success(`New order from ${name}!`, { icon: '🔔' })
           }
@@ -138,6 +159,46 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleRoleUpdate = async (uid, newRole) => {
+    if (!isSuperAdmin) {
+      toast.error('Only super-admin can change roles')
+      return
+    }
+    try {
+      await updateUserRole(uid, newRole)
+      setUsers(prev => prev.map(u => u.uid === uid ? { ...u, role: newRole } : u))
+      toast.success(`Role updated to ${newRole}`)
+    } catch (err) {
+      toast.error('Failed to update role')
+    }
+  }
+
+  const handleToggleOnline = async () => {
+    const newStatus = !localSettings.isOnline
+    setLocalSettings(prev => ({ ...prev, isOnline: newStatus }))
+    try {
+      await updateSettings({ isOnline: newStatus })
+      toast.success(`Bakery is now ${newStatus ? 'Online' : 'Offline'}!`)
+    } catch (err) {
+      toast.error('Failed to update status')
+      // Rollback UI on failure
+      setLocalSettings(prev => ({ ...prev, isOnline: !newStatus }))
+    }
+  }
+
+  const handleSaveSettings = async (e) => {
+    e.preventDefault()
+    setSavingSettings(true)
+    try {
+      await updateSettings(localSettings)
+      toast.success('Settings updated successfully! ⚙️')
+    } catch (err) {
+      toast.error('Failed to update settings')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
   const handleSeed = async () => {
     if (!confirm('This will populate your real Firebase with initial menu items, orders, and users. Proceed?')) return
     setSeeding(true)
@@ -158,7 +219,7 @@ export default function AdminDashboard() {
     pending: orders.filter((o) => o.status === 'pending').length,
     preparing: orders.filter((o) => o.status === 'preparing').length,
     delivered: orders.filter((o) => o.status === 'delivered').length,
-    revenue: orders.filter((o) => o.status === 'delivered').reduce((s, o) => s + (o.total || 0), 0),
+    revenue: orders.filter((o) => o.paid === true).reduce((s, o) => s + (o.total || 0), 0),
   }
 
   return (
@@ -196,7 +257,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
         <StatCard icon={ShoppingBag} label="Total Orders" value={stats.total} color="orange" />
         <StatCard icon={Clock} label="Pending" value={stats.pending} color="yellow" />
         <StatCard icon={TrendingUp} label="Revenue" value={`₹${stats.revenue.toFixed(0)}`} color="green" />
@@ -205,24 +266,32 @@ export default function AdminDashboard() {
 
       {/* Tabs & Filters */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div className="flex gap-2 p-1.5 bg-gray-50 rounded-2xl border border-gray-100/50">
+        <div className="flex gap-2 p-1.5 bg-gray-50 rounded-2xl border border-gray-100/50 overflow-x-auto scrollbar-hide">
           <button
             onClick={() => setTab('orders')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === 'orders' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-transparent text-gray-500 hover:text-orange-600'}`}
+            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${tab === 'orders' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-transparent text-gray-500 hover:text-orange-600'}`}
           >
             Orders ({orders.length})
           </button>
           <button
             onClick={() => setTab('items')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === 'items' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-transparent text-gray-500 hover:text-orange-600'}`}
+            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${tab === 'items' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-transparent text-gray-500 hover:text-orange-600'}`}
           >
             Items ({items.length})
           </button>
+          {isSuperAdmin && (
+            <button
+              onClick={() => setTab('users')}
+              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${tab === 'users' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-transparent text-gray-500 hover:text-orange-600'}`}
+            >
+              Users ({users.length})
+            </button>
+          )}
           <button
-            onClick={() => setTab('users')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === 'users' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-transparent text-gray-500 hover:text-orange-600'}`}
+            onClick={() => setTab('settings')}
+            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${tab === 'settings' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-transparent text-gray-500 hover:text-orange-600'}`}
           >
-            Users ({users.length})
+            Settings
           </button>
         </div>
 
@@ -269,7 +338,7 @@ export default function AdminDashboard() {
               <p>No orders yet!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
               {[...orders]
                 .filter(o => statusFilter === 'all' || o.status === statusFilter)
                 .sort((a, b) => {
@@ -278,12 +347,17 @@ export default function AdminDashboard() {
                   return 0
                 })
                 .map((order) => (
-                  <div key={order.id} className="bg-white rounded-2xl border border-orange-100 p-5 shadow-sm group">
+                  <div key={`${order.id}-${order.status}`} className="bg-white rounded-2xl border border-orange-100 p-5 shadow-sm group">
                     <div className="flex flex-col md:flex-row gap-4">
                       <div className="flex-1">
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                           <div className="flex items-center gap-2">
                             <p className="font-bold text-gray-900">#{order.id.slice(-8).toUpperCase()}</p>
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                              order.paymentMethod === 'cod' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {order.paymentMethod === 'cod' ? 'COD' : 'ONLINE'}
+                            </span>
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id) }}
                               className="p-1 px-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
@@ -293,7 +367,14 @@ export default function AdminDashboard() {
                             </button>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-orange-600">₹{order.total?.toFixed(2)}</p>
+                            <p className="font-bold text-orange-600 flex items-center justify-end gap-2">
+                              ₹{order.total?.toFixed(0)}
+                              <span className={`text-[8px] px-1.5 py-0.5 rounded-full uppercase tracking-widest ${
+                                order.paid ? 'bg-green-100 text-green-600 border border-green-200' : 'bg-red-100 text-red-600 border border-red-200'
+                              }`}>
+                                {order.paid ? 'PAID ✓' : 'UNPAID'}
+                              </span>
+                            </p>
                             <p className="text-[10px] text-gray-400">
                               {order.timestamp?.toDate ? order.timestamp.toDate().toLocaleDateString('en-IN') : 'Recent'}
                             </p>
@@ -336,7 +417,28 @@ export default function AdminDashboard() {
                             <Clock size={14} className="animate-pulse" />
                             <div className="flex-1">
                               <p className="text-[8px] font-bold uppercase opacity-60">Est. Arrival</p>
-                              <CountdownTimer targetTime={order.estimatedDeliveryTime} />
+                              <CountdownTimer 
+                                targetTime={order.estimatedDeliveryTime} 
+                                onTick={(secs) => {
+                                  if (secs > 0 && secs <= 15 && !notifiedLowTime.has(order.id)) {
+                                    setNotifiedLowTime(prev => new Set(prev).add(order.id))
+                                    if (voiceEnabled) {
+                                      tts.speak(`Order ${order.id.slice(-4)} is running late! Please check.`)
+                                    }
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {order.status === 'delivered' && order.deliveredAt && (
+                          <div className="flex items-center gap-3 bg-green-50 text-green-700 px-4 py-2 rounded-xl border border-green-100 mb-3 mt-3">
+                            <CheckCircle2 size={14} />
+                            <div className="flex-1">
+                              <p className="text-[8px] font-bold uppercase opacity-60">Delivered At</p>
+                              <p className="text-[10px] font-bold">
+                                {order.deliveredAt.toDate ? order.deliveredAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Unknown'}
+                              </p>
                             </div>
                           </div>
                         )}
@@ -363,7 +465,7 @@ export default function AdminDashboard() {
                     </div>
 
                     {/* Timer controls */}
-                    {(!order.estimatedDeliveryTime || (order.estimatedDeliveryTime.toMillis ? order.estimatedDeliveryTime.toMillis() : new Date(order.estimatedDeliveryTime).getTime()) < Date.now()) && (
+                    {order.status !== 'delivered' && (!order.estimatedDeliveryTime || (order.estimatedDeliveryTime.toMillis ? order.estimatedDeliveryTime.toMillis() : new Date(order.estimatedDeliveryTime).getTime()) < Date.now()) && (
                       <div className="flex items-center gap-2 bg-gray-50/50 p-2 rounded-xl">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">
                           Add Time:
@@ -403,7 +505,7 @@ export default function AdminDashboard() {
           )}
           <AdminItemList items={items} onRefresh={loadData} />
         </div>
-      ) : (
+      ) : tab === 'users' ? (
         /* Users tab */
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
@@ -431,7 +533,8 @@ export default function AdminDashboard() {
                 <tr>
                   <th className="px-6 py-4">User</th>
                   <th className="px-6 py-4">Contact</th>
-                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Role</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-orange-50">
@@ -454,11 +557,31 @@ export default function AdminDashboard() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-gray-600 flex items-center gap-1.5"><Mail size={12} /> {user.email || 'No email'}</p>
-                        <p className="text-gray-400 text-xs flex items-center gap-1.5 mt-1"><Phone size={12} /> {user.phone || 'No phone'}</p>
+                        <p className="text-gray-600 flex items-center gap-1.5 text-xs"><Mail size={12} /> {user.email || 'No email'}</p>
+                        <p className="text-gray-400 text-[10px] flex items-center gap-1.5 mt-1"><Phone size={12} /> {user.phone || 'No phone'}</p>
                       </td>
                       <td className="px-6 py-4">
-                         <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-bold">Active</span>
+                        <p className="text-gray-600 flex items-center gap-1.5 font-bold">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] ${user.role === 'admin' ? 'bg-red-100 text-red-600' : user.role === 'sub-admin' ? 'bg-blue-100 text-blue-600' : user.role === 'delivery' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'} capitalize`}>
+                            {user.role || 'customer'}
+                          </span>
+                        </p>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => handleRoleUpdate(user.uid, user.role === 'sub-admin' ? 'customer' : 'sub-admin')}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${user.role === 'sub-admin' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-orange-600 border-orange-100 hover:bg-orange-50'}`}
+                          >
+                            {user.role === 'sub-admin' ? 'Revoke Sub-Admin' : 'Make Sub-Admin'}
+                          </button>
+                          <button 
+                            onClick={() => handleRoleUpdate(user.uid, user.role === 'delivery' ? 'customer' : 'delivery')}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${user.role === 'delivery' ? 'bg-green-500 text-white border-green-500' : 'bg-white text-green-600 border-green-100 hover:bg-green-50'}`}
+                          >
+                            {user.role === 'delivery' ? 'Stop Delivery' : 'Make Delivery'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                 ))}
@@ -470,6 +593,208 @@ export default function AdminDashboard() {
               <p>No users found.</p>
             </div>
           )}
+        </div>
+      ) : (
+        /* Settings tab */
+        <div className="max-w-5xl">
+          <form onSubmit={handleSaveSettings} className="space-y-6">
+            
+            {/* BAKERY OPERATION STATUS */}
+            <div className="bg-white rounded-3xl border-2 border-orange-200 p-8 shadow-xl shadow-orange-100/20 mb-8 overflow-hidden relative">
+              <div className="absolute right-0 top-0 w-32 h-32 bg-orange-50 -mr-16 -mt-16 rounded-full opacity-50" />
+              <div className="relative">
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${localSettings?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                  Bakery Operation Status
+                </h3>
+                
+                <div className="flex flex-col md:flex-row gap-8 items-start">
+                  <div className="flex-shrink-0 w-full md:w-auto">
+                    <button
+                      type="button"
+                      onClick={handleToggleOnline}
+                      className={`flex items-center gap-3 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg ${
+                        localSettings?.isOnline 
+                          ? 'bg-green-500 text-white shadow-green-200 hover:bg-green-600' 
+                          : 'bg-red-500 text-white shadow-red-200 hover:bg-red-600'
+                      }`}
+                    >
+                      {localSettings?.isOnline ? (
+                        <><CheckCircle2 size={18} /> Bakery is Online</>
+                      ) : (
+                        <><AlertTriangle size={18} /> Bakery is Offline</>
+                      )}
+                    </button>
+                    <p className="mt-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest px-1">
+                      {localSettings?.isOnline ? 'Users CAN place orders' : 'Users CANNOT place orders'}
+                    </p>
+                  </div>
+
+                  <div className="flex-1 w-full">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">
+                      Offline Message (Visible to users at checkout)
+                    </label>
+                    <textarea
+                      value={localSettings?.offlineNotice || ''}
+                      onChange={(e) => setLocalSettings({...localSettings, offlineNotice: e.target.value})}
+                      placeholder="e.g. Opening soon at 4 PM"
+                      className="w-full border border-gray-100 focus:border-orange-400 rounded-2xl px-5 py-4 text-sm bg-gray-50/30 h-[92px] resize-none font-medium leading-relaxed"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* OPERATIONAL DETAILS */}
+              <div className="bg-white rounded-2xl border border-orange-100 p-6 shadow-sm">
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                  <Phone size={14} className="text-orange-500" />
+                  Contact & Hours
+                </h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Primary Phone</label>
+                      <input
+                        value={localSettings?.phone || ''}
+                        onChange={(e) => setLocalSettings({...localSettings, phone: e.target.value})}
+                        className="w-full border border-gray-100 focus:border-orange-400 rounded-xl px-4 py-2.5 text-sm bg-gray-50/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">WhatsApp Number</label>
+                      <input
+                        value={localSettings?.whatsapp || ''}
+                        onChange={(e) => setLocalSettings({...localSettings, whatsapp: e.target.value})}
+                        className="w-full border border-gray-100 focus:border-orange-400 rounded-xl px-4 py-2.5 text-sm bg-gray-50/30"
+                        placeholder="919876543210"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Email Address</label>
+                    <input
+                      value={localSettings?.email || ''}
+                      onChange={(e) => setLocalSettings({...localSettings, email: e.target.value})}
+                      className="w-full border border-gray-100 focus:border-orange-400 rounded-xl px-4 py-2.5 text-sm bg-gray-50/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Today's Operating Hours</label>
+                    <input
+                      value={localSettings?.hours || ''}
+                      onChange={(e) => setLocalSettings({...localSettings, hours: e.target.value})}
+                      className="w-full border border-gray-100 focus:border-orange-400 rounded-xl px-4 py-2.5 text-sm bg-gray-50/30"
+                      placeholder="e.g. Open · Closes 9:30 pm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* STORE DESCRIPTION */}
+              <div className="bg-white rounded-2xl border border-orange-100 p-6 shadow-sm">
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                  <Filter size={14} className="text-orange-500" />
+                  Store Announcement
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Short Message (Hero Section)</label>
+                    <textarea
+                      value={localSettings?.description || ''}
+                      onChange={(e) => setLocalSettings({...localSettings, description: e.target.value})}
+                      className="w-full border border-gray-100 focus:border-orange-400 rounded-xl px-4 py-2.5 text-sm bg-gray-50/30 h-[104px] resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* DELIVERY & LOCATION */}
+              <div className="bg-white rounded-2xl border border-orange-100 p-6 shadow-sm col-span-full">
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                  <Map size={14} className="text-orange-500" />
+                  Delivery & Location
+                </h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Base Fee ({localSettings?.currency || '₹'})</label>
+                      <input
+                        type="number"
+                        value={localSettings?.deliveryRules?.baseFee || 0}
+                        onChange={(e) => setLocalSettings({
+                          ...localSettings, 
+                          deliveryRules: { ...localSettings.deliveryRules, baseFee: Number(e.target.value) }
+                        })}
+                        className="w-full border border-gray-100 focus:border-orange-400 rounded-xl px-4 py-2.5 text-sm bg-gray-50/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Fee per KM ({localSettings?.currency || '₹'})</label>
+                      <input
+                        type="number"
+                        value={localSettings?.deliveryRules?.feePerKm || 0}
+                        onChange={(e) => setLocalSettings({
+                          ...localSettings, 
+                          deliveryRules: { ...localSettings.deliveryRules, feePerKm: Number(e.target.value) }
+                        })}
+                        className="w-full border border-gray-100 focus:border-orange-400 rounded-xl px-4 py-2.5 text-sm bg-gray-50/30"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Free Above ({localSettings?.currency || '₹'})</label>
+                      <input
+                        type="number"
+                        value={localSettings?.deliveryRules?.freeAbove || 0}
+                        onChange={(e) => setLocalSettings({
+                          ...localSettings, 
+                          deliveryRules: { ...localSettings.deliveryRules, freeAbove: Number(e.target.value) }
+                        })}
+                        className="w-full border border-gray-100 focus:border-orange-400 rounded-xl px-4 py-2.5 text-sm bg-gray-50/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Max KM</label>
+                      <input
+                        type="number"
+                        value={localSettings?.deliveryRules?.maxKm || 0}
+                        onChange={(e) => setLocalSettings({
+                          ...localSettings, 
+                          deliveryRules: { ...localSettings.deliveryRules, maxKm: Number(e.target.value) }
+                        })}
+                        className="w-full border border-gray-100 focus:border-orange-400 rounded-xl px-4 py-2.5 text-sm bg-gray-50/30"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Full Shop Address</label>
+                    <textarea
+                      value={localSettings?.location?.full || ''}
+                      onChange={(e) => setLocalSettings({
+                        ...localSettings, 
+                        location: { ...localSettings.location, full: e.target.value }
+                      })}
+                      className="w-full border border-gray-100 focus:border-orange-400 rounded-xl px-4 py-2.5 text-sm bg-gray-50/30 h-20 resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <button
+                type="submit"
+                disabled={savingSettings}
+                className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg shadow-orange-100 disabled:opacity-50 active:scale-95"
+              >
+                {savingSettings ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                Apply All Changes
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>
@@ -484,7 +809,7 @@ function StatCard({ icon: Icon, label, value, color }) {
     green: 'bg-green-50 text-green-600 border-green-100',
   }
   return (
-    <div className={`rounded-2xl border p-4 ${colors[color]}`}>
+    <div className={`rounded-2xl border p-3 sm:p-4 ${colors[color]}`}>
       <Icon size={20} className="mb-2 opacity-80" />
       <p className="text-2xl font-bold">{value}</p>
       <p className="text-xs font-medium opacity-70 mt-0.5">{label}</p>

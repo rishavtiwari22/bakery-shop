@@ -4,6 +4,8 @@ import { ChefHat, Loader2, Mail, Lock } from 'lucide-react'
 import { loginWithEmail, loginWithGoogle } from '../services/firebase'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
+import { useSettingsStore } from '../store/useSettingsStore'
+import bakeryData from '../data/bakeryData.json'
 
 export default function Login() {
   const { user } = useAuth()
@@ -11,6 +13,7 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const settings = useSettingsStore(s => s.settings) || bakeryData
 
   if (user) { navigate('/'); return null }
 
@@ -51,8 +54,8 @@ export default function Login() {
             <div className="inline-flex items-center justify-center w-14 h-14 bg-orange-500 rounded-2xl mb-3 shadow-lg shadow-orange-200">
               <ChefHat className="text-white" size={28} />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Playfair Display, serif' }}>
-              Welcome to SweetBites
+            <h1 className="text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
+              Welcome to {settings.name}
             </h1>
             <p className="text-gray-400 text-sm mt-1">Sign in to place your order</p>
           </div>
@@ -107,7 +110,7 @@ export default function Login() {
           </form>
 
           <p className="text-center text-xs text-gray-400 mt-6">
-            Admin? Use <span className="font-mono text-gray-600">admin@sweetbites.com</span>
+            Admin? Use <span className="font-mono text-gray-600 text-[10px]">admin@nicebakery.com</span>
           </p>
         </div>
       </div>

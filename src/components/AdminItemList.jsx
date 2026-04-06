@@ -24,8 +24,18 @@ export default function AdminItemList({ items, onRefresh }) {
 
   const handleToggleStock = async (item) => {
     try {
-      await updateItem(item.id, { isOutOfStock: !item.isOutOfStock })
-      toast.success(`Marked as ${item.isOutOfStock ? 'In Stock' : 'Out of Stock'}`)
+      const willBeOutOfStock = !item.isOutOfStock
+      const updateData = { isOutOfStock: willBeOutOfStock }
+      
+      // Sync stockQty if it contradicts the toggle
+      if (willBeOutOfStock) {
+        updateData.stockQty = 0
+      } else if (item.stockQty === 0) {
+        updateData.stockQty = 1
+      }
+
+      await updateItem(item.id, updateData)
+      toast.success(`Marked as ${willBeOutOfStock ? 'Out of Stock' : 'In Stock'}`)
       onRefresh()
     } catch (err) {
       toast.error(err.message)

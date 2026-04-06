@@ -6,11 +6,13 @@ import { useCartStore } from '../store/cartStore'
 import { useAuth } from '../context/AuthContext'
 import { optimizeImage } from '../services/imageUtils'
 import toast from 'react-hot-toast'
+import { useSettingsStore } from '../store/useSettingsStore'
 
 export default function ItemDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const currency = useSettingsStore((s) => s.settings.currency)
   
   const [item, setItem] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -159,9 +161,9 @@ export default function ItemDetail() {
             <p className="text-gray-500 text-sm mb-6 leading-relaxed">{item.desc}</p>
 
             <div className="flex items-baseline gap-3 mb-1">
-              <div className="text-3xl font-bold text-orange-500">₹{(item.price * (1 - (item.offer || 0) / 100)).toFixed(0)}</div>
+              <div className="text-3xl font-bold text-orange-500">{currency}{(item.price * (1 - (item.offer || 0) / 100)).toFixed(0)}</div>
               {item.offer > 0 && (
-                <div className="text-lg text-gray-400 line-through font-medium italic">₹{item.price}</div>
+                <div className="text-lg text-gray-400 line-through font-medium italic">{currency}{item.price}</div>
               )}
             </div>
             {!isOutOfStock && <p className="text-sm text-gray-400 mb-6">{item.stockQty} in stock</p>}
@@ -195,7 +197,7 @@ export default function ItemDetail() {
               }`}
             >
               <ShoppingCart size={20} />
-              {isOutOfStock ? 'Out of Stock' : `Add ${qty} to Cart — ₹${(item.price * (1 - (item.offer || 0) / 100) * qty).toFixed(0)}`}
+              {isOutOfStock ? 'Out of Stock' : `Add ${qty} to Cart — ${currency}${(item.price * (1 - (item.offer || 0) / 100) * qty).toFixed(0)}`}
             </button>
           </div>
         </div>

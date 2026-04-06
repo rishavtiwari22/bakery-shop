@@ -1,6 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
-import { BAKERY_LAT, BAKERY_LNG } from '../services/geolocation'
+import { getBakeryCoords } from '../services/geolocation'
+import RoutingControl from './RoutingControl'
 
 // Fix default marker icons
 delete L.Icon.Default.prototype._getIconUrl
@@ -29,11 +30,13 @@ const orderIcon = L.icon({
 })
 
 export default function OrderMiniMap({ order }) {
+  const bakeryCoords = getBakeryCoords()
   if (!order.address?.lat || !order.address?.lng) return null;
 
   return (
     <div className="w-full aspect-square rounded-xl overflow-hidden border border-orange-100 shadow-inner my-1 relative group">
       <MapContainer
+        key={`${order.id}-${order.status}`}
         center={[order.address.lat, order.address.lng]}
         zoom={15}
         zoomControl={false}
@@ -49,7 +52,7 @@ export default function OrderMiniMap({ order }) {
         />
 
         {/* Bakery Hub */}
-        <Marker position={[BAKERY_LAT, BAKERY_LNG]} icon={bakeryIcon} />
+        <Marker position={[bakeryCoords.lat, bakeryCoords.lng]} icon={bakeryIcon} />
 
         {/* Order Location */}
         <Marker position={[order.address.lat, order.address.lng]} icon={orderIcon}>
@@ -57,11 +60,16 @@ export default function OrderMiniMap({ order }) {
             <div className="text-[10px] font-bold">📍 {order.customerName}</div>
           </Popup>
         </Marker>
+
+        <RoutingControl 
+          bakeryCoords={bakeryCoords} 
+          userCoords={{ lat: order.address.lat, lng: order.address.lng }} 
+        />
       </MapContainer>
       
       {/* Overlay to allow opening in Google Maps */}
       <a 
-        href={`https://www.google.com/maps/dir/${BAKERY_LAT},${BAKERY_LNG}/${order.address.lat},${order.address.lng}`}
+        href={`https://www.google.com/maps/dir/${bakeryCoords.lat},${bakeryCoords.lng}/${order.address.lat},${order.address.lng}`}
         target="_blank"
         rel="noopener noreferrer"
         className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/0 hover:bg-black/10 transition-colors"

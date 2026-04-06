@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app'
+import bakeryData from '../data/bakeryData.json'
 import { MOCK_ITEMS, MOCK_ORDERS, MOCK_REVIEWS, MOCK_USERS } from '../data/mockData'
 import {
   getAuth,
@@ -37,34 +38,26 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 }
 
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
+
 const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
-export const db = getFirestore(app)
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+})
 export const storage = getStorage(app)
-
-// Enable offline persistence
-import { enableIndexedDbPersistence } from 'firebase/firestore'
-if (typeof window !== 'undefined') {
-  enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.')
-    } else if (err.code === 'unimplemented') {
-      console.warn('The current browser doesn\'t support all of the features needed to enable persistence')
-    }
-  })
-}
 
 const googleProvider = new GoogleAuthProvider()
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true'
-console.log('SweetBites Mode:', USE_MOCK ? 'MOCK' : 'FIREBASE')
+console.log('Nice Bakery Mode:', USE_MOCK ? 'MOCK' : 'FIREBASE')
 
 let mockOrderCallback = null
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 export const loginWithGoogle = () => {
-  if (USE_MOCK) return Promise.resolve({ user: { email: 'admin@sweetbites.com' } })
+  if (USE_MOCK) return Promise.resolve({ user: { email: 'admin@nicebakery.com' } })
   return signInWithPopup(auth, googleProvider)
 }
 
@@ -126,32 +119,47 @@ export const addItem = async (item) => {
 }
 
 export const updateItem = async (id, data) => {
+  if (USE_MOCK) {
+    const idx = MOCK_ITEMS.findIndex(i => i.id === id)
+    if (idx !== -1) MOCK_ITEMS[idx] = { ...MOCK_ITEMS[idx], ...data }
+    return Promise.resolve()
+  }
   return updateDoc(doc(db, 'items', id), data)
 }
 
 export const deleteItem = async (id) => {
+  if (USE_MOCK) {
+    const idx = MOCK_ITEMS.findIndex(i => i.id === id)
+    if (idx !== -1) MOCK_ITEMS.splice(idx, 1)
+    return Promise.resolve()
+  }
   return deleteDoc(doc(db, 'items', id))
 }
 
 // ─── Orders ──────────────────────────────────────────────────────────────────
 
 export const createOrder = async (orderData) => {
-  if (USE_MOCK) {
-    console.log('Mock Order Created:', orderData)
-    const newOrder = {
-      id: 'mock-order-' + Date.now(),
+  try {
+    if (USE_MOCK) {
+      console.log('Mock Order Created:', orderData)
+      const newOrder = {
+        id: 'mock-order-' + Date.now(),
+        ...orderData,
+        status: 'pending',
+        timestamp: { toDate: () => new Date() }
+      }
+      MOCK_ORDERS.unshift(newOrder)
+      return newOrder
+    }
+    return await addDoc(collection(db, 'orders'), {
       ...orderData,
       status: 'pending',
-      timestamp: { toDate: () => new Date() }
-    }
-    MOCK_ORDERS.unshift(newOrder)
-    return newOrder
+      timestamp: serverTimestamp(),
+    })
+  } catch (err) {
+    console.error('Firebase: createOrder Error:', err)
+    throw err
   }
-  return addDoc(collection(db, 'orders'), {
-    ...orderData,
-    status: 'pending',
-    timestamp: serverTimestamp(),
-  })
 }
 
 export const subscribeToUserOrders = (userId, callback) => {
@@ -217,12 +225,35 @@ export const simulateNewOrder = (name) => {
 }
 
 export const updateOrderStatus = async (id, status) => {
-  if (USE_MOCK) return
-  return updateDoc(doc(db, 'orders', id), { status })
+  if (USE_MOCK) {
+    const idx = MOCK_ORDERS.findIndex(o => o.id === id)
+    if (idx !== -1) {
+      MOCK_ORDERS[idx] = { ...MOCK_ORDERS[idx], status }
+      if (status === 'delivered') {
+        MOCK_ORDERS[idx].deliveredAt = { toDate: () => new Date() }
+      }
+      if (mockOrderCallback) mockOrderCallback([...MOCK_ORDERS])
+    }
+    return Promise.resolve()
+  }
+  const updateData = { status }
+  if (status === 'delivered') {
+    updateData.deliveredAt = serverTimestamp()
+    // For COD orders, delivering also means they've paid
+    updateData.paid = true
+  }
+  return updateDoc(doc(db, 'orders', id), updateData)
 }
 
 export const deleteOrder = (id) => {
-  if (USE_MOCK) return
+  if (USE_MOCK) {
+    const idx = MOCK_ORDERS.findIndex(o => o.id === id)
+    if (idx !== -1) {
+      MOCK_ORDERS.splice(idx, 1)
+      if (mockOrderCallback) mockOrderCallback([...MOCK_ORDERS])
+    }
+    return Promise.resolve()
+  }
   return deleteDoc(doc(db, 'orders', id))
 }
 
@@ -344,6 +375,28 @@ export const updateUserProfile = async (uid, data) => {
   return setDoc(doc(db, 'users', uid), data, { merge: true })
 }
 
+// ─── Settings ─────────────────────────────────────────────────────────
+export const fetchSettings = async () => {
+  if (USE_MOCK) return bakeryData
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'bakerySettings'))
+    if (snap.exists()) return snap.data()
+    return bakeryData // Fallback to JSON if not in DB
+  } catch (err) {
+    console.error('Fetch Settings Error:', err)
+    return bakeryData
+  }
+}
+
+export const updateSettings = async (data) => {
+  if (USE_MOCK) {
+    // In mock mode, we just return success as we can't persist to bakeryData.json
+    console.log('Mock Settings Updated:', data)
+    return Promise.resolve()
+  }
+  return setDoc(doc(db, 'settings', 'bakerySettings'), data, { merge: true })
+}
+
 export const fetchAllUsers = async () => {
   try {
     if (USE_MOCK) return MOCK_USERS
@@ -381,5 +434,20 @@ export const seedDatabase = async () => {
   } catch (err) {
     console.error('Seed Error:', err)
     throw err
+  }
+}
+/**
+ * Restore User Role Management
+ */
+export const updateUserRole = async (uid, role) => {
+  if (USE_MOCK) {
+    console.log(`Mock: User ${uid} role updated to ${role}`);
+    return Promise.resolve();
+  }
+  try {
+    return await setDoc(doc(db, 'users', uid), { role }, { merge: true });
+  } catch (err) {
+    console.error('Firebase: updateUserRole Error:', err);
+    throw err;
   }
 }

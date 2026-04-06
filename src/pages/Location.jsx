@@ -3,45 +3,62 @@ import { MapPin, Navigation, Loader2, CheckCircle, AlertTriangle, ShoppingBag } 
 import MapView from '../components/MapView'
 import { useCartStore } from '../store/cartStore'
 import { useAuth } from '../context/AuthContext'
-import { getCurrentPosition, distanceFromBakery, reverseGeocode, searchAddress, MAX_DELIVERY_KM } from '../services/geolocation'
-import { createOrder, getUserProfile } from '../services/firebase'
+import { useSettingsStore } from '../store/useSettingsStore'
+import { getCurrentPosition, distanceFromBakery, reverseGeocode, searchAddress, getEstimatedDeliveryTime } from '../services/geolocation'
+import { createOrder, getUserProfile, updateUserProfile } from '../services/firebase'
 import { initiatePayment } from '../services/razorpay'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { getBakeryCoords, DEFAULT_MAX_KM } from '../services/geolocation'
 
 export default function Location() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
-  const { items, getTotal, clearCart } = useCartStore()
+  const { items, getTotal, clearCart, setDeliveryDetails, deliveryDetails } = useCartStore()
+  const settings = useSettingsStore((s) => s.settings)
+  
   const [userLocation, setUserLocation] = useState(null)
   const [address, setAddress] = useState('')
   const [distance, setDistance] = useState(null)
   const [locating, setLocating] = useState(false)
   const [paying, setPaying] = useState(false)
-  const total = getTotal()
+  const [roadDistance, setRoadDistance] = useState(null)
+  const [paymentMethod, setPaymentMethod] = useState('online') // 'online' | 'cod'
+  
+  const subtotal = getTotal()
+  
+  // Delivery Rules from Settings (deep merge with defaults)
+  const rules = {
+    baseFee: Number(settings?.deliveryRules?.baseFee ?? 20),
+    feePerKm: Number(settings?.deliveryRules?.feePerKm ?? 5),
+    freeAbove: Number(settings?.deliveryRules?.freeAbove ?? 500),
+    maxKm: Number(settings?.deliveryRules?.maxKm ?? DEFAULT_MAX_KM)
+  }
+  const MAX_DELIVERY_KM = rules.maxKm
+
+  // Calculate Fee
+  const calculateFee = (dist) => {
+    if (dist > MAX_DELIVERY_KM) return 0
+    if (subtotal >= rules.freeAbove) return 0
+    // Return 0 if both base and perKm are 0 explicitly
+    if (rules.baseFee === 0 && rules.feePerKm === 0) return 0
+    return Math.round(rules.baseFee + dist * rules.feePerKm)
+  }
+
+  const deliveryFee = roadDistance !== null ? calculateFee(roadDistance) : (distance !== null ? calculateFee(distance) : 0)
+  const grandTotal = subtotal + deliveryFee
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
 
   useEffect(() => {
-    if (user) {
-      loadUserProfile()
+    if (profile) {
+      reset({
+        name: profile.name || user?.displayName || '',
+        phone: profile.phone || ''
+      })
     }
-  }, [user])
-
-  const loadUserProfile = async () => {
-    try {
-      const p = await getUserProfile(user.uid)
-      if (p) {
-        reset({
-          name: p.name || user.displayName || '',
-          phone: p.phone || ''
-        })
-      }
-    } catch (err) {
-      console.error('Failed to load profile:', err)
-    }
-  }
+  }, [profile, reset, user])
 
   const handleLocate = async () => {
     setLocating(true)
@@ -51,10 +68,13 @@ export default function Location() {
       const dist = distanceFromBakery(pos.lat, pos.lng)
       setUserLocation(pos)
       setDistance(dist)
+      const fee = calculateFee(dist)
+      setDeliveryDetails({ distance: dist, fee })
+      
       const addr = await reverseGeocode(pos.lat, pos.lng)
       setAddress(addr)
       if (dist > MAX_DELIVERY_KM) {
-        toast.error(`You're ${dist.toFixed(1)}km away — outside our 10km delivery zone!`)
+        toast.error(`You're ${dist.toFixed(1)}km away — outside our ${MAX_DELIVERY_KM}km delivery zone!`)
       } else {
         toast.success(`Location set! ${dist.toFixed(1)}km from bakery ✓`)
       }
@@ -83,6 +103,8 @@ export default function Location() {
         const dist = distanceFromBakery(result.lat, result.lng)
         setUserLocation(result)
         setDistance(dist)
+        const fee = calculateFee(dist)
+        setDeliveryDetails({ distance: dist, fee })
         setAddress(result.displayName)
         toast.success('Address found and pinned! 📍')
       } else {
@@ -99,6 +121,8 @@ export default function Location() {
     const dist = distanceFromBakery(latlng.lat, latlng.lng)
     setUserLocation(latlng)
     setDistance(dist)
+    const fee = calculateFee(dist)
+    setDeliveryDetails({ distance: dist, fee })
     const addr = await reverseGeocode(latlng.lat, latlng.lng)
     setAddress(addr)
   }
@@ -107,47 +131,96 @@ export default function Location() {
     if (!user) { navigate('/login'); return }
     if (items.length === 0) { toast.error('Your cart is empty!'); return }
     if (!userLocation) { toast.error('Please set your delivery location first.'); return }
-    if (distance > MAX_DELIVERY_KM) { toast.error('Outside delivery zone (10km max).'); return }
+    if (distance > MAX_DELIVERY_KM) { toast.error(`Outside delivery zone (${MAX_DELIVERY_KM}km max).`); return }
+
+    const orderPayloadBase = {
+      customerId: user.uid,
+      customerName: formData.name || user.displayName || 'Anonymous',
+      customerEmail: user.email || '',
+      customerPhone: formData.phone || '',
+      items: items.map((i) => ({ 
+        itemId: i.id || '', 
+        name: i.name || '', 
+        qty: i.qty || 1, 
+        price: i.price || 0 
+      })),
+      subtotal: subtotal || 0,
+      deliveryFee: deliveryFee || 0,
+      total: grandTotal || 0,
+      address: { 
+        lat: userLocation?.lat || 0, 
+        lng: userLocation?.lng || 0, 
+        full: address || '' 
+      },
+      distance: roadDistance || distance || 0,
+      estimatedDeliveryTime: new Date(Date.now() + getEstimatedDeliveryTime(roadDistance || distance || 0) * 60000),
+      notes: useCartStore.getState().orderNotes || '',
+      paymentMethod: paymentMethod,
+      paid: paymentMethod === 'online', // Online is paid immediately, COD is not
+    }
+
+    if (paymentMethod === 'cod') {
+      setPaying(true)
+      try {
+        console.log('Placing COD Order:', orderPayloadBase)
+        await createOrder({ ...orderPayloadBase, paymentId: 'cod' })
+        
+        // Update/Sync profile
+        await updateUserProfile(user.uid, { 
+          name: formData.name || user.displayName || '', 
+          phone: formData.phone || '', 
+          email: user.email || '' 
+        })
+
+        clearCart()
+        toast.success('Order placed! Please pay at delivery. 🎉')
+        navigate('/orders')
+      } catch (err) {
+        toast.error('Failed to place order. Please try again.')
+      } finally {
+        setPaying(false)
+      }
+      return
+    }
 
     initiatePayment({
-      amount: total,
+      amount: grandTotal,
       name: formData.name || user.displayName || 'Customer',
       email: user.email,
       contact: formData.phone || '',
+      settings,
       onSuccess: async (response) => {
         setPaying(true)
         try {
-          await createOrder({
-            customerId: user.uid,
-            customerName: formData.name || user.displayName,
-            customerEmail: user.email,
-            customerPhone: formData.phone,
-            items: items.map((i) => ({ itemId: i.id, name: i.name, qty: i.qty, price: i.price })),
-            total,
-            address: { lat: userLocation.lat, lng: userLocation.lng, full: address },
-            distance,
-            notes: useCartStore.getState().orderNotes,
-            paymentId: response.razorpay_payment_id,
-          })
+          const orderPayload = {
+            ...orderPayloadBase,
+            paymentId: response.razorpay_payment_id || 'manual',
+          }
+
+          console.log('Placing Online Order:', orderPayload)
+          await createOrder(orderPayload)
 
           // Update/Sync profile
           await updateUserProfile(user.uid, { 
-            name: formData.name || user.displayName, 
-            phone: formData.phone, 
-            email: user.email 
+            name: formData.name || user.displayName || '', 
+            phone: formData.phone || '', 
+            email: user.email || '' 
           })
 
           clearCart()
           toast.success('Order placed successfully! 🎉')
           navigate('/orders')
         } catch (err) {
-          toast.error('Payment done but order save failed. Contact support.')
+          console.error('Order Finalization Error:', err)
+          toast.error(`CRITICAL: Order failed to save! Please text/call us with this Payment ID: ${response.razorpay_payment_id}`, { duration: 20000 })
         } finally {
           setPaying(false)
         }
       },
       onFailure: (err) => {
-        toast.error('Payment failed: ' + (err?.description || err?.message || 'Unknown error'))
+        const msg = err?.description || err?.message || ''
+        if (msg.toLowerCase().includes('cancelled')) return
+        toast.error('Payment failed: ' + msg)
       },
     })
   }
@@ -160,7 +233,7 @@ export default function Location() {
 
       <div className="grid lg:grid-cols-2 gap-8 items-stretch">
         {/* Map Card */}
-        <div className="bg-white rounded-2xl border border-orange-100 shadow-sm flex flex-col h-full min-h-[500px] overflow-hidden">
+        <div className="bg-white rounded-2xl border border-orange-100 shadow-sm flex flex-col h-full min-h-[300px] sm:min-h-[500px] overflow-hidden">
           <div className="p-4 border-b border-orange-50 bg-orange-50/10 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
               <MapPin size={16} className="text-orange-500" />
@@ -170,13 +243,18 @@ export default function Location() {
               <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
                 distance <= MAX_DELIVERY_KM ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
               }`}>
-                {distance.toFixed(1)} km
+                {roadDistance ? `${roadDistance.toFixed(1)} km (Road)` : `${distance.toFixed(1)} km`}
               </div>
             )}
           </div>
           
           <div className="flex-1 relative">
-            <MapView userLocation={userLocation} onLocationSelect={handleMapSelect} interactive />
+            <MapView 
+              userLocation={userLocation} 
+              onLocationSelect={handleMapSelect} 
+              onDistanceChange={setRoadDistance}
+              interactive 
+            />
           </div>
 
           <div className="p-4 bg-orange-50/5 border-t border-orange-50">
@@ -191,7 +269,7 @@ export default function Location() {
             {distance !== null && distance > MAX_DELIVERY_KM && (
               <div className="mt-2 flex items-center gap-2 text-[9px] px-2 py-1.5 rounded-md bg-red-50 text-red-600 font-bold uppercase tracking-widest border border-red-100/50">
                 <AlertTriangle size={12} />
-                Outside 10km Zone
+                Outside {MAX_DELIVERY_KM}km Zone
               </div>
             )}
           </div>
@@ -256,6 +334,7 @@ export default function Location() {
                 </button>
               </div>
 
+
               {/* Order summary */}
               <div className={`bg-orange-50/50 rounded-xl border border-orange-100/50 ${items.length === 0 ? 'p-2' : 'p-4'} transition-all`}>
                 {items.length === 0 ? (
@@ -276,30 +355,79 @@ export default function Location() {
                       {items.map((i) => (
                         <div key={i.id} className="flex justify-between text-xs font-medium text-gray-600">
                           <span>{i.name} × {i.qty}</span>
-                          <span className="text-gray-900">₹{(i.price * i.qty).toFixed(0)}</span>
+                          <span className="text-gray-900">{settings.currency}{(i.price * i.qty).toFixed(0)}</span>
                         </div>
                       ))}
                     </div>
-                    <div className="border-t border-orange-200/50 mt-3 pt-3 flex justify-between font-black text-sm text-gray-900">
+                    
+                    <div className="border-t border-orange-100 mt-3 pt-3 space-y-1">
+                      <div className="flex justify-between text-[11px] font-medium text-gray-400">
+                        <span>Items Subtotal</span>
+                        <span>{settings.currency}{subtotal.toFixed(0)}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] font-medium text-gray-400">
+                        <span className="flex items-center gap-1.5">
+                          Delivery Fee
+                          {distance !== null && <span className="text-[9px] bg-orange-100 text-orange-600 px-1.5 rounded-full">{distance.toFixed(1)} km</span>}
+                        </span>
+                        <span>{deliveryFee > 0 ? `${settings.currency}${deliveryFee}` : 'FREE'}</span>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-orange-200 mt-3 pt-3 flex justify-between font-black text-sm text-gray-900">
                       <span className="uppercase tracking-widest text-[10px]">Grand Total</span>
-                      <span className="text-orange-600">₹{total.toFixed(2)}</span>
+                      <span className="text-orange-600">{settings.currency}{grandTotal.toFixed(0)}</span>
                     </div>
                   </>
                 )}
               </div>
 
-              <button
-                type="submit"
-                disabled={paying || items.length === 0}
-                className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400 text-white py-4 rounded-xl font-bold text-sm transition-all shadow-xl shadow-orange-200/50"
-              >
-                {paying && <Loader2 size={18} className="animate-spin" />}
-                PAY ₹{total.toFixed(2)} NOW
-              </button>
-            </form>
+                {settings.isOnline ? (
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <button
+                      type="submit"
+                      disabled={paying || items.length === 0}
+                      onClick={() => setPaymentMethod('online')}
+                      className="flex flex-col items-center justify-center gap-1 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400 text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-orange-200/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        {paying && paymentMethod === 'online' && <Loader2 size={14} className="animate-spin" />}
+                        <span className="text-xs uppercase tracking-wider">Pay Online</span>
+                      </div>
+                      <span className="text-[10px] opacity-80 font-medium">{settings.currency}{grandTotal.toFixed(0)}</span>
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={paying || items.length === 0}
+                      onClick={() => setPaymentMethod('cod')}
+                      className="flex flex-col items-center justify-center gap-1 bg-white border-2 border-orange-500 text-orange-600 hover:bg-orange-50 disabled:border-gray-200 disabled:text-gray-400 py-3 rounded-xl font-bold transition-all"
+                    >
+                      <div className="flex items-center gap-2">
+                        {paying && paymentMethod === 'cod' && <Loader2 size={14} className="animate-spin" />}
+                        <span className="text-xs uppercase tracking-wider">COD</span>
+                      </div>
+                      <span className="text-[10px] opacity-80 font-medium">Pay {settings.currency}{grandTotal.toFixed(0)} at Delivery</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-4 bg-red-50 border border-red-100 rounded-2xl p-6 text-center shadow-inner">
+                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <AlertTriangle className="text-red-600" size={24} />
+                    </div>
+                    <h3 className="text-sm font-black text-red-900 uppercase tracking-widest mb-2">Bakery Currently Offline</h3>
+                    <p className="text-xs text-red-700 font-medium leading-relaxed bg-white/50 p-3 rounded-xl border border-red-50/50">
+                      {settings.offlineNotice || "We're currently not taking orders. Please check back later!"}
+                    </p>
+                    <p className="mt-4 text-[10px] text-red-400 font-bold uppercase tracking-widest italic">
+                      Items in your cart will be saved ✓
+                    </p>
+                  </div>
+                )}
+              </form>
+            </div>
           </div>
         </div>
       </div>
-    </div>
   )
 }

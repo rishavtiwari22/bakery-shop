@@ -5,6 +5,8 @@ import { useCartStore } from '../store/cartStore'
 import { useAuth } from '../context/AuthContext'
 import { logout } from '../services/firebase'
 import toast from 'react-hot-toast'
+import { useSettingsStore } from '../store/useSettingsStore'
+import bakeryData from '../data/bakeryData.json'
 
 export default function Navbar() {
   const toggleCart = useCartStore((s) => s.toggleCart)
@@ -12,6 +14,8 @@ export default function Navbar() {
   const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  
+  const settings = useSettingsStore(s => s.settings) || bakeryData
 
   const handleLogout = async () => {
     await logout()
@@ -25,19 +29,31 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="bg-orange-500 text-white p-1.5 rounded-lg group-hover:bg-orange-600 transition-colors">
-              <ChefHat size={20} />
+            <div className="bg-orange-600 text-white p-2 rounded-xl group-hover:bg-orange-700 transition-all shadow-luxe group-hover:scale-110 flex items-center justify-center min-w-[40px] min-h-[40px]">
+              {settings.logoEmoji ? (
+                <span className="text-xl">{settings.logoEmoji}</span>
+              ) : (
+                <ChefHat size={22} strokeWidth={2.5} />
+              )}
             </div>
-            <span className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Playfair Display, serif' }}>
-              Sweet<span className="text-orange-500">Bites</span>
-            </span>
+            <div className="flex flex-col -gap-1 overflow-hidden">
+              <span className="text-lg sm:text-2xl font-black text-stone-900 tracking-tight leading-none truncate max-w-[120px] sm:max-w-none" style={{ fontFamily: 'var(--font-serif)' }}>
+                {settings.name.split(' ')[0]}<span className="text-orange-600"> {settings.name.split(' ').slice(1).join(' ')}</span>
+              </span>
+            </div>
           </Link>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-6">
             <Link to="/" className="text-gray-600 hover:text-orange-500 transition-colors text-sm font-medium">Catalog</Link>
-            <Link to="/location" className="flex items-center gap-1 text-gray-600 hover:text-orange-500 transition-colors text-sm font-medium">
-              <MapPin size={14} />Order Online
+            <Link to="/location" className="flex items-center gap-1.5 text-gray-600 hover:text-orange-500 transition-colors text-sm font-medium">
+              <MapPin size={14} />
+              Order Online
+              {!settings.isOnline && (
+                <span className="flex items-center gap-1 bg-red-100 text-red-600 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest animate-pulse">
+                  Offline
+                </span>
+              )}
             </Link>
             {user && (
               <Link to="/orders" className="text-gray-600 hover:text-orange-500 transition-colors text-sm font-medium">My Orders</Link>
@@ -101,6 +117,7 @@ export default function Navbar() {
             <Link to="/" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:bg-orange-50 rounded-lg text-sm">Catalog</Link>
             <Link to="/location" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:bg-orange-50 rounded-lg text-sm font-medium">Order Online</Link>
             {user && <Link to="/orders" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:bg-orange-50 rounded-lg text-sm">My Orders</Link>}
+            {user && <Link to="/profile" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:bg-orange-50 rounded-lg text-sm">My Profile</Link>}
             {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:bg-orange-50 rounded-lg text-sm">Admin Panel</Link>}
             {user ? (
               <button onClick={() => { handleLogout(); setMenuOpen(false) }} className="block w-full text-left px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">
