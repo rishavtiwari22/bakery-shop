@@ -239,6 +239,8 @@ export const updateOrderStatus = async (id, status) => {
   const updateData = { status }
   if (status === 'delivered') {
     updateData.deliveredAt = serverTimestamp()
+    // For COD orders, delivering also means they've paid
+    updateData.paid = true
   }
   return updateDoc(doc(db, 'orders', id), updateData)
 }
@@ -432,5 +434,20 @@ export const seedDatabase = async () => {
   } catch (err) {
     console.error('Seed Error:', err)
     throw err
+  }
+}
+/**
+ * Restore User Role Management
+ */
+export const updateUserRole = async (uid, role) => {
+  if (USE_MOCK) {
+    console.log(`Mock: User ${uid} role updated to ${role}`);
+    return Promise.resolve();
+  }
+  try {
+    return await setDoc(doc(db, 'users', uid), { role }, { merge: true });
+  } catch (err) {
+    console.error('Firebase: updateUserRole Error:', err);
+    throw err;
   }
 }

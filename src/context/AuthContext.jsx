@@ -48,10 +48,11 @@ export function AuthProvider({ children }) {
     return unsub
   }, [])
 
-  const isAdmin = user && ADMIN_EMAILS.includes(user.email)
+  const isAdmin = user && (ADMIN_EMAILS.includes(user.email) || profile?.role === 'admin' || profile?.role === 'sub-admin')
+  const isSuperAdmin = user?.email === 'rishav@navgurukul.org'
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin, isSuperAdmin, refreshProfile }}>
       {!loading && children}
     </AuthContext.Provider>
   )

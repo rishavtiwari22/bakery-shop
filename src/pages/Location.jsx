@@ -24,6 +24,7 @@ export default function Location() {
   const [locating, setLocating] = useState(false)
   const [paying, setPaying] = useState(false)
   const [roadDistance, setRoadDistance] = useState(null)
+  const [paymentMethod, setPaymentMethod] = useState('online') // 'online' | 'cod'
   
   const subtotal = getTotal()
   
@@ -132,6 +133,56 @@ export default function Location() {
     if (!userLocation) { toast.error('Please set your delivery location first.'); return }
     if (distance > MAX_DELIVERY_KM) { toast.error(`Outside delivery zone (${MAX_DELIVERY_KM}km max).`); return }
 
+    const orderPayloadBase = {
+      customerId: user.uid,
+      customerName: formData.name || user.displayName || 'Anonymous',
+      customerEmail: user.email || '',
+      customerPhone: formData.phone || '',
+      items: items.map((i) => ({ 
+        itemId: i.id || '', 
+        name: i.name || '', 
+        qty: i.qty || 1, 
+        price: i.price || 0 
+      })),
+      subtotal: subtotal || 0,
+      deliveryFee: deliveryFee || 0,
+      total: grandTotal || 0,
+      address: { 
+        lat: userLocation?.lat || 0, 
+        lng: userLocation?.lng || 0, 
+        full: address || '' 
+      },
+      distance: roadDistance || distance || 0,
+      estimatedDeliveryTime: new Date(Date.now() + getEstimatedDeliveryTime(roadDistance || distance || 0) * 60000),
+      notes: useCartStore.getState().orderNotes || '',
+      paymentMethod: paymentMethod,
+      paid: paymentMethod === 'online', // Online is paid immediately, COD is not
+    }
+
+    if (paymentMethod === 'cod') {
+      setPaying(true)
+      try {
+        console.log('Placing COD Order:', orderPayloadBase)
+        await createOrder({ ...orderPayloadBase, paymentId: 'cod' })
+        
+        // Update/Sync profile
+        await updateUserProfile(user.uid, { 
+          name: formData.name || user.displayName || '', 
+          phone: formData.phone || '', 
+          email: user.email || '' 
+        })
+
+        clearCart()
+        toast.success('Order placed! Please pay at delivery. 🎉')
+        navigate('/orders')
+      } catch (err) {
+        toast.error('Failed to place order. Please try again.')
+      } finally {
+        setPaying(false)
+      }
+      return
+    }
+
     initiatePayment({
       amount: grandTotal,
       name: formData.name || user.displayName || 'Customer',
@@ -142,31 +193,11 @@ export default function Location() {
         setPaying(true)
         try {
           const orderPayload = {
-            customerId: user.uid,
-            customerName: formData.name || user.displayName || 'Anonymous',
-            customerEmail: user.email || '',
-            customerPhone: formData.phone || '',
-            items: items.map((i) => ({ 
-              itemId: i.id || '', 
-              name: i.name || '', 
-              qty: i.qty || 1, 
-              price: i.price || 0 
-            })),
-            subtotal: subtotal || 0,
-            deliveryFee: deliveryFee || 0,
-            total: grandTotal || 0,
-            address: { 
-              lat: userLocation?.lat || 0, 
-              lng: userLocation?.lng || 0, 
-              full: address || '' 
-            },
-            distance: roadDistance || distance || 0,
-            estimatedDeliveryTime: new Date(Date.now() + getEstimatedDeliveryTime(roadDistance || distance || 0) * 60000),
-            notes: useCartStore.getState().orderNotes || '',
+            ...orderPayloadBase,
             paymentId: response.razorpay_payment_id || 'manual',
           }
 
-          console.log('Placing Order:', orderPayload)
+          console.log('Placing Online Order:', orderPayload)
           await createOrder(orderPayload)
 
           // Update/Sync profile
@@ -303,6 +334,7 @@ export default function Location() {
                 </button>
               </div>
 
+
               {/* Order summary */}
               <div className={`bg-orange-50/50 rounded-xl border border-orange-100/50 ${items.length === 0 ? 'p-2' : 'p-4'} transition-all`}>
                 {items.length === 0 ? (
@@ -350,18 +382,52 @@ export default function Location() {
                 )}
               </div>
 
-                <button
-                  type="submit"
-                  disabled={paying || items.length === 0}
-                  className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400 text-white py-4 rounded-xl font-bold text-sm transition-all shadow-xl shadow-orange-200/50"
-                >
-                  {paying && <Loader2 size={18} className="animate-spin" />}
-                  PAY {settings.currency}{grandTotal.toFixed(0)} NOW
-                </button>
-            </form>
+                {settings.isOnline ? (
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <button
+                      type="submit"
+                      disabled={paying || items.length === 0}
+                      onClick={() => setPaymentMethod('online')}
+                      className="flex flex-col items-center justify-center gap-1 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400 text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-orange-200/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        {paying && paymentMethod === 'online' && <Loader2 size={14} className="animate-spin" />}
+                        <span className="text-xs uppercase tracking-wider">Pay Online</span>
+                      </div>
+                      <span className="text-[10px] opacity-80 font-medium">{settings.currency}{grandTotal.toFixed(0)}</span>
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={paying || items.length === 0}
+                      onClick={() => setPaymentMethod('cod')}
+                      className="flex flex-col items-center justify-center gap-1 bg-white border-2 border-orange-500 text-orange-600 hover:bg-orange-50 disabled:border-gray-200 disabled:text-gray-400 py-3 rounded-xl font-bold transition-all"
+                    >
+                      <div className="flex items-center gap-2">
+                        {paying && paymentMethod === 'cod' && <Loader2 size={14} className="animate-spin" />}
+                        <span className="text-xs uppercase tracking-wider">COD</span>
+                      </div>
+                      <span className="text-[10px] opacity-80 font-medium">Pay {settings.currency}{grandTotal.toFixed(0)} at Delivery</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-4 bg-red-50 border border-red-100 rounded-2xl p-6 text-center shadow-inner">
+                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <AlertTriangle className="text-red-600" size={24} />
+                    </div>
+                    <h3 className="text-sm font-black text-red-900 uppercase tracking-widest mb-2">Bakery Currently Offline</h3>
+                    <p className="text-xs text-red-700 font-medium leading-relaxed bg-white/50 p-3 rounded-xl border border-red-50/50">
+                      {settings.offlineNotice || "We're currently not taking orders. Please check back later!"}
+                    </p>
+                    <p className="mt-4 text-[10px] text-red-400 font-bold uppercase tracking-widest italic">
+                      Items in your cart will be saved ✓
+                    </p>
+                  </div>
+                )}
+              </form>
+            </div>
           </div>
         </div>
       </div>
-    </div>
   )
 }

@@ -52,12 +52,12 @@ export default function OrderHistory() {
           <p className="text-gray-400 text-sm">Start ordering some delicious bakery items!</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
           {orders.map((order) => {
             const s = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending
             const Icon = s.icon
             return (
-              <div key={order.id} className="bg-white rounded-2xl border border-orange-100 overflow-hidden shadow-sm transition-all hover:shadow-md">
+              <div key={order.id} className="bg-white rounded-2xl border border-orange-100 overflow-hidden shadow-sm transition-all hover:shadow-md h-fit">
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-4 mb-4">
                     <div>

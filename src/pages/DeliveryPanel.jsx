@@ -76,7 +76,7 @@ export default function DeliveryPanel() {
           <p className="text-gray-400 text-sm">You haven't been assigned any orders yet.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 gap-10">
           {orders.map(order => (
             <div key={order.id} className="bg-white rounded-3xl border border-orange-100 overflow-hidden shadow-lg hover:shadow-xl transition-all">
               <div className="p-6">

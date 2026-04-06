@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Package, Plus, Loader2, ChefHat, TrendingUp, ShoppingBag, Clock, CheckCircle2, User, Mail, Phone, Trash2, Filter, ChevronDown } from 'lucide-react'
+import { Package, Plus, Loader2, ChefHat, TrendingUp, ShoppingBag, Clock, CheckCircle2, User, Mail, Phone, Trash2, Filter, ChevronDown, AlertTriangle } from 'lucide-react'
 import { 
   fetchAllOrders, 
   fetchItems, 
@@ -9,8 +9,10 @@ import {
   fetchAllUsers,
   seedDatabase,
   updateOrderTimer,
-  deleteOrder
+  deleteOrder,
+  updateUserRole
 } from '../services/firebase'
+import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import OrderMiniMap from '../components/OrderMiniMap'
 import AdminItemForm from '../components/AdminItemForm'
@@ -44,6 +46,7 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | STATUS_OPTIONS
   const [seeding, setSeeding] = useState(false)
   const [notifiedLowTime, setNotifiedLowTime] = useState(new Set())
+  const { user, isSuperAdmin } = useAuth()
   
   const settings = useSettingsStore(s => s.settings)
   const updateSettings = useSettingsStore(s => s.update)
@@ -51,7 +54,7 @@ export default function AdminDashboard() {
   const [localSettings, setLocalSettings] = useState(null)
 
   useEffect(() => {
-    if (settings && !localSettings) {
+    if (settings) {
       setLocalSettings(settings)
     }
   }, [settings])
@@ -156,6 +159,33 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleRoleUpdate = async (uid, newRole) => {
+    if (!isSuperAdmin) {
+      toast.error('Only super-admin can change roles')
+      return
+    }
+    try {
+      await updateUserRole(uid, newRole)
+      setUsers(prev => prev.map(u => u.uid === uid ? { ...u, role: newRole } : u))
+      toast.success(`Role updated to ${newRole}`)
+    } catch (err) {
+      toast.error('Failed to update role')
+    }
+  }
+
+  const handleToggleOnline = async () => {
+    const newStatus = !localSettings.isOnline
+    setLocalSettings(prev => ({ ...prev, isOnline: newStatus }))
+    try {
+      await updateSettings({ isOnline: newStatus })
+      toast.success(`Bakery is now ${newStatus ? 'Online' : 'Offline'}!`)
+    } catch (err) {
+      toast.error('Failed to update status')
+      // Rollback UI on failure
+      setLocalSettings(prev => ({ ...prev, isOnline: !newStatus }))
+    }
+  }
+
   const handleSaveSettings = async (e) => {
     e.preventDefault()
     setSavingSettings(true)
@@ -189,7 +219,7 @@ export default function AdminDashboard() {
     pending: orders.filter((o) => o.status === 'pending').length,
     preparing: orders.filter((o) => o.status === 'preparing').length,
     delivered: orders.filter((o) => o.status === 'delivered').length,
-    revenue: orders.filter((o) => o.status === 'delivered').reduce((s, o) => s + (o.total || 0), 0),
+    revenue: orders.filter((o) => o.paid === true).reduce((s, o) => s + (o.total || 0), 0),
   }
 
   return (
@@ -249,12 +279,14 @@ export default function AdminDashboard() {
           >
             Items ({items.length})
           </button>
-          <button
-            onClick={() => setTab('users')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${tab === 'users' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-transparent text-gray-500 hover:text-orange-600'}`}
-          >
-            Users ({users.length})
-          </button>
+          {isSuperAdmin && (
+            <button
+              onClick={() => setTab('users')}
+              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${tab === 'users' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-transparent text-gray-500 hover:text-orange-600'}`}
+            >
+              Users ({users.length})
+            </button>
+          )}
           <button
             onClick={() => setTab('settings')}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${tab === 'settings' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-transparent text-gray-500 hover:text-orange-600'}`}
@@ -306,7 +338,7 @@ export default function AdminDashboard() {
               <p>No orders yet!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
               {[...orders]
                 .filter(o => statusFilter === 'all' || o.status === statusFilter)
                 .sort((a, b) => {
@@ -321,6 +353,11 @@ export default function AdminDashboard() {
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                           <div className="flex items-center gap-2">
                             <p className="font-bold text-gray-900">#{order.id.slice(-8).toUpperCase()}</p>
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                              order.paymentMethod === 'cod' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {order.paymentMethod === 'cod' ? 'COD' : 'ONLINE'}
+                            </span>
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id) }}
                               className="p-1 px-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
@@ -330,7 +367,14 @@ export default function AdminDashboard() {
                             </button>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-orange-600">₹{order.total?.toFixed(2)}</p>
+                            <p className="font-bold text-orange-600 flex items-center justify-end gap-2">
+                              ₹{order.total?.toFixed(0)}
+                              <span className={`text-[8px] px-1.5 py-0.5 rounded-full uppercase tracking-widest ${
+                                order.paid ? 'bg-green-100 text-green-600 border border-green-200' : 'bg-red-100 text-red-600 border border-red-200'
+                              }`}>
+                                {order.paid ? 'PAID ✓' : 'UNPAID'}
+                              </span>
+                            </p>
                             <p className="text-[10px] text-gray-400">
                               {order.timestamp?.toDate ? order.timestamp.toDate().toLocaleDateString('en-IN') : 'Recent'}
                             </p>
@@ -489,7 +533,8 @@ export default function AdminDashboard() {
                 <tr>
                   <th className="px-6 py-4">User</th>
                   <th className="px-6 py-4">Contact</th>
-                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Role</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-orange-50">
@@ -512,11 +557,31 @@ export default function AdminDashboard() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-gray-600 flex items-center gap-1.5"><Mail size={12} /> {user.email || 'No email'}</p>
-                        <p className="text-gray-400 text-xs flex items-center gap-1.5 mt-1"><Phone size={12} /> {user.phone || 'No phone'}</p>
+                        <p className="text-gray-600 flex items-center gap-1.5 text-xs"><Mail size={12} /> {user.email || 'No email'}</p>
+                        <p className="text-gray-400 text-[10px] flex items-center gap-1.5 mt-1"><Phone size={12} /> {user.phone || 'No phone'}</p>
                       </td>
                       <td className="px-6 py-4">
-                         <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-bold">Active</span>
+                        <p className="text-gray-600 flex items-center gap-1.5 font-bold">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] ${user.role === 'admin' ? 'bg-red-100 text-red-600' : user.role === 'sub-admin' ? 'bg-blue-100 text-blue-600' : user.role === 'delivery' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'} capitalize`}>
+                            {user.role || 'customer'}
+                          </span>
+                        </p>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => handleRoleUpdate(user.uid, user.role === 'sub-admin' ? 'customer' : 'sub-admin')}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${user.role === 'sub-admin' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-orange-600 border-orange-100 hover:bg-orange-50'}`}
+                          >
+                            {user.role === 'sub-admin' ? 'Revoke Sub-Admin' : 'Make Sub-Admin'}
+                          </button>
+                          <button 
+                            onClick={() => handleRoleUpdate(user.uid, user.role === 'delivery' ? 'customer' : 'delivery')}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${user.role === 'delivery' ? 'bg-green-500 text-white border-green-500' : 'bg-white text-green-600 border-green-100 hover:bg-green-50'}`}
+                          >
+                            {user.role === 'delivery' ? 'Stop Delivery' : 'Make Delivery'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                 ))}
@@ -533,6 +598,53 @@ export default function AdminDashboard() {
         /* Settings tab */
         <div className="max-w-5xl">
           <form onSubmit={handleSaveSettings} className="space-y-6">
+            
+            {/* BAKERY OPERATION STATUS */}
+            <div className="bg-white rounded-3xl border-2 border-orange-200 p-8 shadow-xl shadow-orange-100/20 mb-8 overflow-hidden relative">
+              <div className="absolute right-0 top-0 w-32 h-32 bg-orange-50 -mr-16 -mt-16 rounded-full opacity-50" />
+              <div className="relative">
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${localSettings?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                  Bakery Operation Status
+                </h3>
+                
+                <div className="flex flex-col md:flex-row gap-8 items-start">
+                  <div className="flex-shrink-0 w-full md:w-auto">
+                    <button
+                      type="button"
+                      onClick={handleToggleOnline}
+                      className={`flex items-center gap-3 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg ${
+                        localSettings?.isOnline 
+                          ? 'bg-green-500 text-white shadow-green-200 hover:bg-green-600' 
+                          : 'bg-red-500 text-white shadow-red-200 hover:bg-red-600'
+                      }`}
+                    >
+                      {localSettings?.isOnline ? (
+                        <><CheckCircle2 size={18} /> Bakery is Online</>
+                      ) : (
+                        <><AlertTriangle size={18} /> Bakery is Offline</>
+                      )}
+                    </button>
+                    <p className="mt-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest px-1">
+                      {localSettings?.isOnline ? 'Users CAN place orders' : 'Users CANNOT place orders'}
+                    </p>
+                  </div>
+
+                  <div className="flex-1 w-full">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">
+                      Offline Message (Visible to users at checkout)
+                    </label>
+                    <textarea
+                      value={localSettings?.offlineNotice || ''}
+                      onChange={(e) => setLocalSettings({...localSettings, offlineNotice: e.target.value})}
+                      placeholder="e.g. Opening soon at 4 PM"
+                      className="w-full border border-gray-100 focus:border-orange-400 rounded-2xl px-5 py-4 text-sm bg-gray-50/30 h-[92px] resize-none font-medium leading-relaxed"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="grid md:grid-cols-2 gap-6">
               {/* OPERATIONAL DETAILS */}
               <div className="bg-white rounded-2xl border border-orange-100 p-6 shadow-sm">

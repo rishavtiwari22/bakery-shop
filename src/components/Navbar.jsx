@@ -40,19 +40,20 @@ export default function Navbar() {
               <span className="text-lg sm:text-2xl font-black text-stone-900 tracking-tight leading-none truncate max-w-[120px] sm:max-w-none" style={{ fontFamily: 'var(--font-serif)' }}>
                 {settings.name.split(' ')[0]}<span className="text-orange-600"> {settings.name.split(' ').slice(1).join(' ')}</span>
               </span>
-              {settings.nameHindi && (
-                <span className="text-[8px] sm:text-[9px] font-bold text-orange-600 uppercase tracking-[0.2em] sm:tracking-[0.3em] ml-0.5 truncate">
-                  {settings.nameHindi}
-                </span>
-              )}
             </div>
           </Link>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-6">
             <Link to="/" className="text-gray-600 hover:text-orange-500 transition-colors text-sm font-medium">Catalog</Link>
-            <Link to="/location" className="flex items-center gap-1 text-gray-600 hover:text-orange-500 transition-colors text-sm font-medium">
-              <MapPin size={14} />Order Online
+            <Link to="/location" className="flex items-center gap-1.5 text-gray-600 hover:text-orange-500 transition-colors text-sm font-medium">
+              <MapPin size={14} />
+              Order Online
+              {!settings.isOnline && (
+                <span className="flex items-center gap-1 bg-red-100 text-red-600 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest animate-pulse">
+                  Offline
+                </span>
+              )}
             </Link>
             {user && (
               <Link to="/orders" className="text-gray-600 hover:text-orange-500 transition-colors text-sm font-medium">My Orders</Link>

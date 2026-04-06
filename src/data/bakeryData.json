@@ -1,7 +1,6 @@
 {
   "name": "Nice Bakery",
-  "nameHindi": "नाइस बेकरी",
-  "tagline": "नाइस बेकरी — Jashpur's Finest",
+  "tagline": "Nice Bakery — Jashpur's Finest",
   "description": "One of the best Bakery of Jashpur city. Crafting premium delights and artisanal breads fresh for you every single day. Authorized Coca-Cola distributor.",
   "detailedDescription": "Bakery and Cake Shop at Maharaja Chowk. Best birthday cakes and daily delights delivered warm.",
   "address": "B.S Market, Maharaja Chowk, Jashpur Nagar, Chhattisgarh 496331",
@@ -28,5 +27,7 @@
   },
   "city": "Jashpur",
   "logoEmoji": "🧁",
+  "isOnline": true,
+  "offlineNotice": "We are currently closed for orders. Please check back later!",
   "currency": "₹"
 }
