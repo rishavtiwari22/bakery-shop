@@ -1,6 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import { getBakeryCoords } from '../services/geolocation'
+import { MapPin } from 'lucide-react'
 import RoutingControl from './RoutingControl'
 
 // Fix default marker icons
@@ -31,14 +32,18 @@ const orderIcon = L.icon({
 
 export default function OrderMiniMap({ order }) {
   const bakeryCoords = getBakeryCoords()
-  if (!order.address?.lat || !order.address?.lng) return null;
+  if (!order.address?.lat || !order.address?.lng) return (
+    <div className="w-full aspect-square rounded-xl bg-gray-50 flex items-center justify-center border border-dashed border-gray-200">
+      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">No Location Data</p>
+    </div>
+  );
 
   return (
-    <div className="w-full aspect-square rounded-xl overflow-hidden border border-orange-100 shadow-inner my-1 relative group">
+    <div className="w-full aspect-square rounded-xl overflow-hidden border border-orange-100 shadow-md my-1 relative group bg-gray-100">
       <MapContainer
         key={`${order.id}-${order.status}`}
         center={[order.address.lat, order.address.lng]}
-        zoom={15}
+        zoom={13}
         zoomControl={false}
         scrollWheelZoom={false}
         dragging={false}
@@ -55,11 +60,7 @@ export default function OrderMiniMap({ order }) {
         <Marker position={[bakeryCoords.lat, bakeryCoords.lng]} icon={bakeryIcon} />
 
         {/* Order Location */}
-        <Marker position={[order.address.lat, order.address.lng]} icon={orderIcon}>
-          <Popup>
-            <div className="text-[10px] font-bold">📍 {order.customerName}</div>
-          </Popup>
-        </Marker>
+        <Marker position={[order.address.lat, order.address.lng]} icon={orderIcon} />
 
         <RoutingControl 
           bakeryCoords={bakeryCoords} 
@@ -67,15 +68,15 @@ export default function OrderMiniMap({ order }) {
         />
       </MapContainer>
       
-      {/* Overlay to allow opening in Google Maps */}
+      {/* Overlay for Navigation */}
       <a 
         href={`https://www.google.com/maps/dir/${bakeryCoords.lat},${bakeryCoords.lng}/${order.address.lat},${order.address.lng}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/0 hover:bg-black/10 transition-colors"
+        className="absolute inset-0 z-[1000] flex flex-col items-center justify-end p-3 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-auto"
       >
-        <span className="bg-white/90 text-[10px] font-bold px-2 py-1 rounded-full text-orange-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shadow-sm">
-           Open Directions ↗
+        <span className="bg-orange-600 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+           Open Directions <MapPin size={10} />
         </span>
       </a>
     </div>

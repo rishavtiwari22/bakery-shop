@@ -3,9 +3,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     function isAdmin() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return request.auth != null && (
         request.auth.token.email == 'rishav@navgurukul.org' || 
-        request.auth.token.email == 'admin@nicebakery.com'
+        userDoc.role == 'admin' || 
+        userDoc.role == 'sub-admin'
       );
     }
 

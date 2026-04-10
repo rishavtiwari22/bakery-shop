@@ -1,4 +1,4 @@
-import { MapPin, Phone, Heart, ArrowRight, ExternalLink } from 'lucide-react'
+import { MapPin, Phone, Heart, ArrowRight, ExternalLink, ChefHat } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useSettingsStore } from '../store/useSettingsStore'
 import bakeryData from '../data/bakeryData.json'
@@ -57,11 +57,11 @@ export default function Footer() {
           {/* Brand Column */}
           <div className="space-y-6">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg shadow-orange-100 group-hover:scale-110 transition-transform duration-500">
-                {settings.logoEmoji || '🧁'}
+              <div className="w-12 h-12 bg-orange-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-orange-100 group-hover:scale-110 transition-transform duration-500">
+                <ChefHat size={28} strokeWidth={2.5} />
               </div>
-              <span className="text-2xl font-bold text-gray-900 tracking-tight" style={{ fontFamily: 'Playfair Display, serif' }}>
-                {settings.name}
+              <span className="text-2xl font-black text-stone-900 tracking-tight" style={{ fontFamily: 'Playfair Display, serif' }}>
+                {settings.name.split(' ')[0]}<span className="text-orange-600"> {settings.name.split(' ').slice(1).join(' ')}</span>
               </span>
             </Link>
             <p className="text-gray-500 text-sm leading-relaxed font-medium">

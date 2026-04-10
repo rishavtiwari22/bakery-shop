@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthChange, updateUserProfile, getUserProfile } from '../services/firebase'
 
-const ADMIN_EMAILS = ['rishav@navgurukul.org', 'admin@nicebakery.com']
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true'
 
 const AuthContext = createContext(null)
@@ -48,7 +47,7 @@ export function AuthProvider({ children }) {
     return unsub
   }, [])
 
-  const isAdmin = user && (ADMIN_EMAILS.includes(user.email) || profile?.role === 'admin' || profile?.role === 'sub-admin')
+  const isAdmin = user && (user.email === 'rishav@navgurukul.org' || profile?.role === 'admin' || profile?.role === 'sub-admin')
   const isSuperAdmin = user?.email === 'rishav@navgurukul.org'
 
   return (

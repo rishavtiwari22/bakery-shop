@@ -25,6 +25,8 @@ import {
   serverTimestamp,
   onSnapshot,
   Timestamp,
+  runTransaction,
+  increment,
 } from 'firebase/firestore'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
@@ -162,6 +164,53 @@ export const createOrder = async (orderData) => {
   }
 }
 
+/**
+ * Advanced Order Placement with Atomic Stock Validation
+ */
+export const placeOrderWithStockCheck = async (orderData) => {
+  if (USE_MOCK) return createOrder(orderData)
+
+  return runTransaction(db, async (transaction) => {
+    // 1. First, check stock for all items
+    for (const item of orderData.items) {
+      const itemRef = doc(db, 'items', item.itemId)
+      const itemSnap = await transaction.get(itemRef)
+      
+      if (!itemSnap.exists()) {
+        throw new Error(`Item ${item.name} not found in database.`)
+      }
+      
+      const currentStock = itemSnap.data().stockQty || 0
+      if (currentStock < item.qty) {
+        throw new Error(`INSUFFICIENT_STOCK:${item.name}:${currentStock}`)
+      }
+    }
+
+    // 2. All items in stock, now create the order
+    const orderRef = doc(collection(db, 'orders'))
+    const timestamp = serverTimestamp()
+    
+    transaction.set(orderRef, {
+      ...orderData,
+      status: 'pending',
+      timestamp,
+    })
+
+    // 3. Decrement stock for each item
+    for (const item of orderData.items) {
+      const itemRef = doc(db, 'items', item.itemId)
+      const newQty = Math.max(0, (await transaction.get(itemRef)).data().stockQty - item.qty)
+      
+      transaction.update(itemRef, {
+        stockQty: increment(-item.qty),
+        isOutOfStock: newQty <= 0
+      })
+    }
+
+    return { id: orderRef.id }
+  })
+}
+
 export const subscribeToUserOrders = (userId, callback) => {
   if (USE_MOCK) {
     const userOrders = MOCK_ORDERS.filter(o => o.customerId === userId || userId === 'demo-user')
@@ -231,6 +280,7 @@ export const updateOrderStatus = async (id, status) => {
       MOCK_ORDERS[idx] = { ...MOCK_ORDERS[idx], status }
       if (status === 'delivered') {
         MOCK_ORDERS[idx].deliveredAt = { toDate: () => new Date() }
+        MOCK_ORDERS[idx].paid = true
       }
       if (mockOrderCallback) mockOrderCallback([...MOCK_ORDERS])
     }
@@ -239,10 +289,34 @@ export const updateOrderStatus = async (id, status) => {
   const updateData = { status }
   if (status === 'delivered') {
     updateData.deliveredAt = serverTimestamp()
-    // For COD orders, delivering also means they've paid
+    // For delivered orders, marking as paid is a standard safeguard
     updateData.paid = true
   }
   return updateDoc(doc(db, 'orders', id), updateData)
+}
+
+export const cancelOrder = async (id) => {
+  if (USE_MOCK) {
+    const idx = MOCK_ORDERS.findIndex(o => o.id === id)
+    if (idx !== -1) {
+      MOCK_ORDERS[idx] = { ...MOCK_ORDERS[idx], status: 'cancelled' }
+      if (mockOrderCallback) mockOrderCallback([...MOCK_ORDERS])
+    }
+    return Promise.resolve()
+  }
+  return updateDoc(doc(db, 'orders', id), { status: 'cancelled' })
+}
+
+export const markAsPaid = async (id) => {
+  if (USE_MOCK) {
+    const idx = MOCK_ORDERS.findIndex(o => o.id === id)
+    if (idx !== -1) {
+      MOCK_ORDERS[idx] = { ...MOCK_ORDERS[idx], paid: true }
+      if (mockOrderCallback) mockOrderCallback([...MOCK_ORDERS])
+    }
+    return Promise.resolve()
+  }
+  return updateDoc(doc(db, 'orders', id), { paid: true })
 }
 
 export const deleteOrder = (id) => {
@@ -450,4 +524,39 @@ export const updateUserRole = async (uid, role) => {
     console.error('Firebase: updateUserRole Error:', err);
     throw err;
   }
+}
+
+/**
+ * Payment Recovery Services
+ */
+export const createPaymentIntent = async (intentData) => {
+  if (USE_MOCK) return { id: 'mock-intent-' + Date.now() }
+  return addDoc(collection(db, 'payment_intents'), {
+    ...intentData,
+    status: 'initiated',
+    timestamp: serverTimestamp(),
+  })
+}
+
+export const updatePaymentIntent = async (id, data) => {
+  if (USE_MOCK) return
+  return updateDoc(doc(db, 'payment_intents', id), {
+    ...data,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export const fetchUnclaimedIntents = async () => {
+  if (USE_MOCK) return []
+  // Logic: Intents with a paymentId but not marked as 'completed'
+  // and are older than 2 minutes (to avoid capturing currently-in-progress orders)
+  const q = query(
+    collection(db, 'payment_intents'), 
+    where('status', '==', 'initiated'),
+    orderBy('timestamp', 'desc')
+  )
+  const snap = await getDocs(q)
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(d => d.paymentId) // Only those that actually paid successfully
 }

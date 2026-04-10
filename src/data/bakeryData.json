@@ -26,7 +26,7 @@
     "justdial": "https://www.justdial.com/Jashpur/Nice-Bakery-Maharaja-Chowk/9999P7763.7763.181126145325.N4L3_BZDET"
   },
   "city": "Jashpur",
-  "logoEmoji": "🧁",
+  "logoEmoji": null,
   "isOnline": true,
   "offlineNotice": "We are currently closed for orders. Please check back later!",
   "currency": "₹"

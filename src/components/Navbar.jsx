@@ -14,7 +14,7 @@ export default function Navbar() {
   const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
-  
+
   const settings = useSettingsStore(s => s.settings) || bakeryData
 
   const handleLogout = async () => {
@@ -30,11 +30,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
             <div className="bg-orange-600 text-white p-2 rounded-xl group-hover:bg-orange-700 transition-all shadow-luxe group-hover:scale-110 flex items-center justify-center min-w-[40px] min-h-[40px]">
-              {settings.logoEmoji ? (
-                <span className="text-xl">{settings.logoEmoji}</span>
-              ) : (
-                <ChefHat size={22} strokeWidth={2.5} />
-              )}
+              <ChefHat size={22} strokeWidth={2.5} />
             </div>
             <div className="flex flex-col -gap-1 overflow-hidden">
               <span className="text-lg sm:text-2xl font-black text-stone-900 tracking-tight leading-none truncate max-w-[120px] sm:max-w-none" style={{ fontFamily: 'var(--font-serif)' }}>

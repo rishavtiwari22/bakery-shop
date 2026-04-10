@@ -34,11 +34,14 @@ export default function AdminItemList({ items, onRefresh }) {
         updateData.stockQty = 1
       }
 
+      // Optimistic update: We rely on the parent (onRefresh) being non-blocking,
+      // but for absolute zero-lag, we skip the toast until sub-millisecond if possible.
+      // Actually, we just need onRefresh to be quick.
       await updateItem(item.id, updateData)
-      toast.success(`Marked as ${willBeOutOfStock ? 'Out of Stock' : 'In Stock'}`)
-      onRefresh()
+      onRefresh() // This is now quickRefreshItems (no global loader)
     } catch (err) {
       toast.error(err.message)
+      onRefresh() // Rollback/Sync on error
     }
   }
 

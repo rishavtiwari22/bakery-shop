@@ -16,14 +16,10 @@ import { useSettingsStore } from '../store/useSettingsStore'
 import bakeryData from '../data/bakeryData.json'
 
 export default function Home() {
-  const { products, loading: storeLoading, init } = useProductStore()
+  const { products, loading: storeLoading } = useProductStore()
   const [activeFilter, setActiveFilter] = useState('')
   const [search, setSearch] = useState('')
   const settings = useSettingsStore(s => s.settings) || bakeryData
-
-  useEffect(() => {
-    init()
-  }, [])
 
   const items = useMemo(() => {
     return useProductStore.getState().getFilteredProducts(activeFilter, search)

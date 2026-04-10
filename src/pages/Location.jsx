@@ -5,8 +5,15 @@ import { useCartStore } from '../store/cartStore'
 import { useAuth } from '../context/AuthContext'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { getCurrentPosition, distanceFromBakery, reverseGeocode, searchAddress, getEstimatedDeliveryTime } from '../services/geolocation'
-import { createOrder, getUserProfile, updateUserProfile } from '../services/firebase'
+import { 
+  placeOrderWithStockCheck, 
+  getUserProfile, 
+  updateUserProfile,
+  createPaymentIntent,
+  updatePaymentIntent 
+} from '../services/firebase'
 import { initiatePayment } from '../services/razorpay'
+import { useRecoveryStore } from '../store/recoveryStore'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
@@ -159,12 +166,29 @@ export default function Location() {
       paid: paymentMethod === 'online', // Online is paid immediately, COD is not
     }
 
+    // 1. Stage the order for recovery
+    const recoveryStore = useRecoveryStore.getState()
+    recoveryStore.stageOrder(orderPayloadBase)
+    
+    // 2. Create Payment Intent in DB for Admin visibility
+    let intentId = null
+    try {
+      const intent = await createPaymentIntent(orderPayloadBase)
+      intentId = intent.id
+    } catch (err) {
+      console.warn('Could not stage payment intent in DB, continuing with local recovery only.')
+    }
+
     if (paymentMethod === 'cod') {
       setPaying(true)
       try {
         console.log('Placing COD Order:', orderPayloadBase)
-        await createOrder({ ...orderPayloadBase, paymentId: 'cod' })
+        await placeOrderWithStockCheck({ ...orderPayloadBase, paymentId: 'cod' })
         
+        // Success: Clear intent and recovery store
+        if (intentId) await updatePaymentIntent(intentId, { status: 'completed' })
+        recoveryStore.clear()
+
         // Update/Sync profile
         await updateUserProfile(user.uid, { 
           name: formData.name || user.displayName || '', 
@@ -176,7 +200,12 @@ export default function Location() {
         toast.success('Order placed! Please pay at delivery. 🎉')
         navigate('/orders')
       } catch (err) {
-        toast.error('Failed to place order. Please try again.')
+        if (err.message?.startsWith('INSUFFICIENT_STOCK')) {
+          const [_, name, current] = err.message.split(':')
+          toast.error(`Sorry, ${name} is now out of stock! Only ${current} left.`, { duration: 5000 })
+        } else {
+          toast.error('Failed to place order. Please try again.')
+        }
       } finally {
         setPaying(false)
       }
@@ -191,14 +220,24 @@ export default function Location() {
       settings,
       onSuccess: async (response) => {
         setPaying(true)
+        const paymentId = response.razorpay_payment_id
+        
+        // 3. Lock the payment ID in recovery store FIRST
+        recoveryStore.addPaymentId(paymentId)
+        if (intentId) await updatePaymentIntent(intentId, { paymentId })
+
         try {
           const orderPayload = {
             ...orderPayloadBase,
-            paymentId: response.razorpay_payment_id || 'manual',
+            paymentId: paymentId,
           }
 
           console.log('Placing Online Order:', orderPayload)
-          await createOrder(orderPayload)
+          await placeOrderWithStockCheck(orderPayload)
+
+          // 4. Final Success Cleanup
+          if (intentId) await updatePaymentIntent(intentId, { status: 'completed' })
+          recoveryStore.clear()
 
           // Update/Sync profile
           await updateUserProfile(user.uid, { 
@@ -212,7 +251,12 @@ export default function Location() {
           navigate('/orders')
         } catch (err) {
           console.error('Order Finalization Error:', err)
-          toast.error(`CRITICAL: Order failed to save! Please text/call us with this Payment ID: ${response.razorpay_payment_id}`, { duration: 20000 })
+          if (err.message?.startsWith('INSUFFICIENT_STOCK')) {
+             const [_, name, current] = err.message.split(':')
+             toast.error(`PAYMENT SUCCESS but ${name} sold out! Please contact us with Payment ID: ${paymentId} for a refund or replacement.`, { duration: 30000 })
+          } else {
+             toast.error(`CRITICAL: Order failed to save! Please text/call us with this Payment ID: ${paymentId}`, { duration: 30000 })
+          }
         } finally {
           setPaying(false)
         }
