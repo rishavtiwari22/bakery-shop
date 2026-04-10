@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Package, Plus, Loader2, ChefHat, TrendingUp, ShoppingBag, Clock, CheckCircle2, User, Mail, Phone, Trash2, Filter, ChevronDown, AlertTriangle, X, MapPin, Map, Settings, Save, Globe, Truck, Timer } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Package, Search, Plus, Loader2, ChefHat, TrendingUp, ShoppingBag, Clock, CheckCircle2, User, Mail, Phone, Trash2, Filter, ChevronDown, AlertTriangle, X, MapPin, Map, Settings, Save, Globe, Truck, Timer } from 'lucide-react'
 import {
   fetchAllOrders,
   fetchItems,
@@ -49,6 +49,7 @@ export default function AdminDashboard() {
   const [voiceEnabled, setVoiceEnabled] = useState(true)
   const [userSearch, setUserSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | STATUS_OPTIONS
+  const [orderSearch, setOrderSearch] = useState('')
   const [seeding, setSeeding] = useState(false)
   const [notifiedLowTime, setNotifiedLowTime] = useState(new Set())
   const [selectedOrder, setSelectedOrder] = useState(null)
@@ -69,19 +70,15 @@ export default function AdminDashboard() {
     loadData()
   }, [])
 
+  const prevOrderIds = useRef(new Set())
+
   useEffect(() => {
     // Real-time listener for orders & voice notifications
     const unsub = subscribeToOrders((newOrders) => {
-      setOrders((prevOrders) => {
-        // If it's the first load, don't speak, just set orders
-        if (!initialized) {
-          return newOrders
-        }
-
-        // Check for new orders (IDs not in prevOrders)
-        const prevIds = new Set(prevOrders.map(o => o.id))
+      // Check for new orders (IDs not in prevOrderIds)
+      if (initialized) {
         newOrders.forEach(order => {
-          if (!prevIds.has(order.id) && order.status === 'pending') {
+          if (!prevOrderIds.current.has(order.id) && order.status === 'pending') {
             const name = order.customerName || 'a customer'
             const notes = order.notes ? `. Special Instructions: ${order.notes}` : ''
             console.log('Order from:', name, 'Voice:', voiceEnabled)
@@ -95,9 +92,11 @@ export default function AdminDashboard() {
             toast.success(`New order from ${name}!`, { icon: '🔔' })
           }
         })
+      }
 
-        return newOrders
-      })
+      // Update ref and state
+      prevOrderIds.current = new Set(newOrders.map(o => o.id))
+      setOrders(newOrders)
       setInitialized(true)
     })
 
@@ -369,7 +368,29 @@ export default function AdminDashboard() {
         </div>
 
         {tab === 'orders' && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+             {/* Order Search */}
+             <div className="relative flex-1 min-w-[200px] sm:max-w-[300px] group/search">
+               <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within/search:text-orange-500 transition-colors">
+                 <Search size={16} />
+               </div>
+               <input
+                 type="text"
+                 value={orderSearch}
+                 onChange={(e) => setOrderSearch(e.target.value)}
+                 placeholder="Search ID or Name..."
+                 className="w-full pl-10 pr-4 py-2.5 rounded-xl text-xs font-bold transition-all border border-gray-100 bg-white text-gray-700 hover:border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-100 shadow-sm"
+               />
+               {orderSearch && (
+                 <button 
+                   onClick={() => setOrderSearch('')}
+                   className="absolute inset-y-0 right-3.5 flex items-center text-gray-300 hover:text-gray-500 transition-colors"
+                 >
+                   <X size={14} />
+                 </button>
+               )}
+             </div>
+
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:inline">Filter:</span>
             <div className="relative group/filter">
               <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-orange-500 group-hover/filter:text-orange-600 transition-colors">
@@ -391,7 +412,13 @@ export default function AdminDashboard() {
             </div>
 
             <div className="bg-orange-50 text-orange-600 px-3 py-2 rounded-xl border border-orange-100 text-[10px] font-black uppercase tracking-tighter">
-              {orders.filter(o => statusFilter === 'all' || o.status === statusFilter).length} {statusFilter}
+              {orders.filter(o => {
+                const matchesStatus = statusFilter === 'all' || o.status === statusFilter
+                const matchesSearch = !orderSearch || 
+                  o.id.toLowerCase().includes(orderSearch.toLowerCase()) || 
+                  (o.customerName || '').toLowerCase().includes(orderSearch.toLowerCase())
+                return matchesStatus && matchesSearch
+              }).length} Results
             </div>
           </div>
         )}
@@ -405,20 +432,30 @@ export default function AdminDashboard() {
         /* Orders tab */
         <div className="space-y-6">
 
-          {[...orders].filter(o => statusFilter === 'all' || o.status === statusFilter).length === 0 ? (
+          {orders.filter(o => {
+            const matchesStatus = statusFilter === 'all' || o.status === statusFilter
+            const matchesSearch = !orderSearch || 
+              o.id.toLowerCase().includes(orderSearch.toLowerCase()) || 
+              (o.customerName || '').toLowerCase().includes(orderSearch.toLowerCase())
+            return matchesStatus && matchesSearch
+          }).length === 0 ? (
             <div className="text-center py-12 text-gray-400">
-              <div className="text-4xl mb-2">📦</div>
-              <p>No orders yet!</p>
+              <div className="text-4xl mb-2">🔍</div>
+              <p>No orders matching your search or filter.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               {[...orders]
-                .filter(o => statusFilter === 'all' || o.status === statusFilter)
+                .filter(o => {
+                  const matchesStatus = statusFilter === 'all' || o.status === statusFilter
+                  const matchesSearch = !orderSearch || 
+                    o.id.toLowerCase().includes(orderSearch.toLowerCase()) || 
+                    (o.customerName || '').toLowerCase().includes(orderSearch.toLowerCase())
+                  return matchesStatus && matchesSearch
+                })
                 .sort((a, b) => {
-                  if (a.status === 'pending' && b.status !== 'pending') return -1
-                  if (a.status !== 'pending' && b.status === 'pending') return 1
-                  const aTime = a.timestamp?.toMillis ? a.timestamp.toMillis() : new Date(a.timestamp).getTime()
-                  const bTime = b.timestamp?.toMillis ? b.timestamp.toMillis() : new Date(b.timestamp).getTime()
+                  const aTime = a.timestamp?.toMillis ? a.timestamp.toMillis() : new Date(a.timestamp || 0).getTime()
+                  const bTime = b.timestamp?.toMillis ? b.timestamp.toMillis() : new Date(b.timestamp || 0).getTime()
                   return bTime - aTime
                 })
                 .map((order) => {
@@ -427,7 +464,7 @@ export default function AdminDashboard() {
                   
                   return (
                     <div 
-                      key={`${order.id}-${order.status}`} 
+                      key={order.id} 
                       className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 group flex flex-col h-full relative"
                     >
                       {/* Header Section: ID and Price side-by-side */}

@@ -7,22 +7,41 @@
 const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID
 
 /**
+ * Dynamically loads the Razorpay checkout script.
+ */
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true)
+      return
+    }
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.async = true
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
+
+/**
  * Initiates a Razorpay payment modal.
  * @param {object} options - { amount (paise), orderId, name, email, contact, settings, onSuccess, onFailure }
  */
-export function initiatePayment({ amount, orderId, name, email, contact, settings, onSuccess, onFailure }) {
+export async function initiatePayment({ amount, orderId, name, email, contact, settings, onSuccess, onFailure }) {
   if (!window.Razorpay) {
-    onFailure?.(new Error('Razorpay SDK not loaded. Check internet connection.'))
-    return
+    const loaded = await loadRazorpayScript()
+    if (!loaded) {
+      onFailure?.(new Error('Razorpay SDK failed to load. Check your internet connection.'))
+      return
+    }
   }
 
   const options = {
     key: RAZORPAY_KEY || 'rzp_test_XXXXXXXXXXXXXXX',
     amount: Math.round(amount * 100), // paise
     currency: 'INR',
-    name: settings?.name || 'Nice Bakery',
-    description: 'Order Payment',
-    image: '/logo192.png',
+    // Account details pulled automatically from Dashboard
     order_id: orderId,
     handler: function (response) {
       onSuccess?.(response)

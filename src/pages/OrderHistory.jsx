@@ -42,7 +42,15 @@ export default function OrderHistory() {
       setLoading(false)
     })
 
-    return () => unsubscribe()
+    // Safety timeout: if no data after 5s and still loading, stop spinner
+    const timer = setTimeout(() => {
+      setLoading(false)
+    }, 5000)
+
+    return () => {
+      unsubscribe()
+      clearTimeout(timer)
+    }
   }, [user])
 
   if (loading) return (

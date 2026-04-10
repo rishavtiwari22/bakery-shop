@@ -2,7 +2,6 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import Home from './pages/Home'
 import ItemDetail from './pages/ItemDetail'
-import Location from './pages/Location'
 import Login from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
@@ -15,6 +14,7 @@ import { Loader2 } from 'lucide-react'
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 const Profile = lazy(() => import('./pages/Profile'))
 const OrderHistory = lazy(() => import('./pages/OrderHistory'))
+const Location = lazy(() => import('./pages/Location'))
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">

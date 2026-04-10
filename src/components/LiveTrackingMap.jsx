@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import { getBakeryCoords } from '../services/geolocation'
 import RoutingControl from './RoutingControl'
 import { doc, onSnapshot } from 'firebase/firestore'

@@ -1,5 +1,6 @@
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import { getBakeryCoords } from '../services/geolocation'
 import { MapPin } from 'lucide-react'
 import RoutingControl from './RoutingControl'

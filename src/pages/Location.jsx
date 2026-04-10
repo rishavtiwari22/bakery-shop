@@ -135,6 +135,9 @@ export default function Location() {
   }
 
   const onCheckout = async (formData) => {
+    // 0. Double-click protection (Idempotency Guard)
+    if (paying) return
+    
     if (!user) { navigate('/login'); return }
     if (items.length === 0) { toast.error('Your cart is empty!'); return }
     if (!userLocation) { toast.error('Please set your delivery location first.'); return }

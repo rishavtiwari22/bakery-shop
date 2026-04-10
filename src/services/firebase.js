@@ -171,7 +171,9 @@ export const placeOrderWithStockCheck = async (orderData) => {
   if (USE_MOCK) return createOrder(orderData)
 
   return runTransaction(db, async (transaction) => {
-    // 1. First, check stock for all items
+    const itemSnaps = new Map()
+
+    // 1. READ PHASE: Get all items and check stock
     for (const item of orderData.items) {
       const itemRef = doc(db, 'items', item.itemId)
       const itemSnap = await transaction.get(itemRef)
@@ -184,9 +186,11 @@ export const placeOrderWithStockCheck = async (orderData) => {
       if (currentStock < item.qty) {
         throw new Error(`INSUFFICIENT_STOCK:${item.name}:${currentStock}`)
       }
+
+      itemSnaps.set(item.itemId, itemSnap)
     }
 
-    // 2. All items in stock, now create the order
+    // 2. WRITE PHASE: Create the order and update stock
     const orderRef = doc(collection(db, 'orders'))
     const timestamp = serverTimestamp()
     
@@ -196,10 +200,11 @@ export const placeOrderWithStockCheck = async (orderData) => {
       timestamp,
     })
 
-    // 3. Decrement stock for each item
+    // Incrementally update stock for each item using the cached snapshots
     for (const item of orderData.items) {
       const itemRef = doc(db, 'items', item.itemId)
-      const newQty = Math.max(0, (await transaction.get(itemRef)).data().stockQty - item.qty)
+      const currentStock = itemSnaps.get(item.itemId).data().stockQty || 0
+      const newQty = Math.max(0, currentStock - item.qty)
       
       transaction.update(itemRef, {
         stockQty: increment(-item.qty),
