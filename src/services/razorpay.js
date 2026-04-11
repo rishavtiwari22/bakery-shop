@@ -43,6 +43,7 @@ export async function initiatePayment({ amount, orderId, name, email, contact, s
     currency: 'INR',
     // Account details pulled automatically from Dashboard
     order_id: orderId,
+    payment_capture: 1, // Auto-capture payments immediately
     handler: function (response) {
       onSuccess?.(response)
     },
