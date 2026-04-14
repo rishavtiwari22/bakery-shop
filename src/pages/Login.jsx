@@ -110,7 +110,7 @@ export default function Login() {
           </form>
 
           <p className="text-center text-xs text-gray-400 mt-6">
-            Admin? Use <span className="font-mono text-gray-600 text-[10px]">admin@nicebakery.com</span>
+            Admin? Use <span className="font-mono text-gray-600 text-[10px]">aamilmalick94@gmail.com</span>
           </p>
         </div>
       </div>
